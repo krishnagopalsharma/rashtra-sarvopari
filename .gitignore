@@ -1,0 +1,6 @@
+.agents/
+.codex/
+.netlify/
+work/
+*.log
+node_modules/

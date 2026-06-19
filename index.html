@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Rashtra Sarvopari civic dashboard prototype for Indian districts."
+    />
+    <title>Rashtra Sarvopari | Civic Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Libre+Baskerville:wght@700&family=Playfair+Display:wght@700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <div class="brand-intro" id="cinemaLoader" aria-label="Rashtra Sarvopari opening animation">
+      <div class="intro-emblem intro-logo" aria-hidden="true">
+        <img src="assets/rashtra-sarvopari-logo-transparent.png" alt="" />
+      </div>
+      <div class="intro-wordmark">
+        <div class="intro-hindi">
+          <span class="intro-rashtra">राष्ट्र</span>
+          <span class="intro-sarvopari">सर्वोपरि</span>
+        </div>
+        <div class="intro-english">Rashtra Sarvopari</div>
+      </div>
+      <div class="intro-loader" aria-hidden="true"></div>
+      <div class="intro-status" id="introStatus" aria-live="polite">Checking secure connection...</div>
+      <div class="intro-credit">© 2026 Rashtra Sarvopari. Designed &amp; Developed by Krishna Gopal Sharma.</div>
+    </div>
+
+    <header class="site-header" id="top">
+      <a class="brand" href="#top" aria-label="Rashtra Sarvopari home">
+        <span class="brand-mark brand-logo">
+          <img src="assets/rashtra-tech-logo-transparent.png" alt="Rashtra Sarvopari emblem" />
+        </span>
+        <span>राष्ट्र सर्वोपरि</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#dashboard" data-i18n="navAreaBoard">Area Board</a>
+        <a href="#report" data-i18n="navReport">Report</a>
+        <a href="#issues" data-i18n="navIssues">Issues</a>
+        <a href="#contacts" data-i18n="navRepresentatives">Representatives</a>
+      </nav>
+
+      <button class="language-toggle" id="languageToggle" type="button">
+        हिंदी
+      </button>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="heroTitle">
+        <div class="hero-media">
+          <div class="hero-shade"></div>
+        </div>
+
+        <div class="hero-content">
+          <div class="hero-copy hero-brand-copy">
+            <h1 class="rashtra-hero" id="heroTitle" aria-label="राष्ट्र सर्वोपरि">
+              <span class="hero-rashtra">राष्ट्र</span>
+              <span class="hero-sarvopari">सर्वोपरि</span>
+            </h1>
+            <p class="rashtra-subtitle">Rashtra Sarvopari</p>
+          </div>
+
+          <form class="area-search" id="areaSearch">
+            <div class="search-head">
+              <strong data-i18n="searchTitle">Find your area</strong>
+              <span data-i18n="searchSubtitle"
+                >Open the local issue board for your selected district and area.</span
+              >
+            </div>
+
+            <div class="area-fields">
+              <label>
+                <span data-i18n="state">State</span>
+                <select id="stateInput" name="state" aria-label="State" required>
+                  <option value="">Select state</option>
+                  <option>Uttar Pradesh</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="district">District</span>
+                <select id="districtInput" name="district" aria-label="District" required>
+                  <option value="">Select district</option>
+                  <option>Mathura</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="area">Tehsil / Sub-District</span>
+                <select id="areaInput" name="tehsil" aria-label="Area" required></select>
+              </label>
+
+              <label>
+                <span data-i18n="pin">Pin code</span>
+                <input id="pinInput" name="pincode" value="" inputmode="numeric" aria-label="Pin code" required />
+              </label>
+            </div>
+
+            <div
+              class="mvp-region-notice"
+              id="mvpRegionNotice"
+              role="status"
+              aria-live="polite"
+              aria-hidden="true"
+            ></div>
+
+            <div class="search-actions">
+              <button type="button" class="ghost-action" id="locationButton">
+                <span data-i18n="locate">Use my location</span>
+              </button>
+              <button type="reset" class="ghost-action" id="clearButton" data-i18n="clear">Clear</button>
+              <button type="submit" class="primary-action">
+                <span data-i18n="button">Open Area Board</span>
+                <span aria-hidden="true">-></span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="zoom-experience" id="mapZoom" aria-label="Map zoom story" data-dashboard-section hidden>
+        <div class="zoom-copy">
+          <span class="section-kicker" data-i18n="areaViewKicker">Area view</span>
+          <h2 id="areaViewTitle">Govardhan Dashboard</h2>
+        </div>
+        <div class="satellite-card" id="areaMapCard"></div>
+      </section>
+
+      <section class="heritage-strip" aria-labelledby="heritageTitle" data-dashboard-section hidden>
+        <div class="gallery-intro">
+          <span class="section-kicker" data-i18n="heritageKicker">Local heritage</span>
+          <h2 id="heritageTitle">Govardhan photo gallery</h2>
+          <p data-i18n="heritageText">
+            Famous places and local visuals stay separate from the satellite
+            issue map, so users can explore the area without confusing photos
+            with live civic reports.
+          </p>
+        </div>
+        <div class="gallery-grid" id="areaGallery" aria-label="Area photo gallery"></div>
+      </section>
+
+      <section class="dashboard" id="dashboard" aria-labelledby="dashboardTitle" data-dashboard-section hidden>
+        <div class="section-heading">
+          <span class="section-kicker" data-i18n="dashboardKicker">Local board</span>
+          <h2 id="dashboardTitle" data-i18n="dashboardTitle">Area report card</h2>
+          <p data-i18n="dashboardText">
+            Issue categories, verification status, and resolution progress are
+            the main product. Representatives stay as reference, not the whole website.
+          </p>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card">
+            <span data-i18n="reportedIssues">Reported issues</span>
+            <strong>128</strong>
+            <p data-i18n="reportedIssuesText">Prototype sample count for selected districts.</p>
+          </article>
+          <article class="stat-card">
+            <span data-i18n="verified">Verified</span>
+            <strong>74</strong>
+            <p data-i18n="verifiedText">Issues with area, category, and photo proof.</p>
+          </article>
+          <article class="stat-card">
+            <span data-i18n="resolved">Resolved</span>
+            <strong>31</strong>
+            <p data-i18n="resolvedText">Closed after public or admin verification.</p>
+          </article>
+          <article class="stat-card">
+            <span data-i18n="topIssue">Top issue</span>
+            <strong>Road</strong>
+            <p data-i18n="topIssueText">Road repair and street light reports are trending.</p>
+          </article>
+        </div>
+
+        <div class="report-card-strip">
+          <article>
+            <span data-i18n="issueStatus">Issue status</span>
+            <strong><i class="dot pending"></i><span data-i18n="pending">Pending</span></strong>
+            <p data-i18n="pendingText">Reports waiting for verification.</p>
+          </article>
+          <article>
+            <span data-i18n="departmentFollowup">Department follow-up</span>
+            <strong><i class="dot progress"></i><span data-i18n="inProgress">In Progress</span></strong>
+            <p data-i18n="inProgressText">Issue shared or action started.</p>
+          </article>
+          <article>
+            <span data-i18n="publicClose">Public close</span>
+            <strong><i class="dot resolved"></i><span data-i18n="resolvedStatus">Resolved</span></strong>
+            <p data-i18n="resolvedStatusText">Closed after proof or admin review.</p>
+          </article>
+          <article>
+            <span data-i18n="publicRating">Public rating</span>
+            <strong>4.0 / 5</strong>
+            <p data-i18n="publicRatingText">Demo rating layer for representatives.</p>
+          </article>
+        </div>
+
+        <div class="representative-layout" id="contacts">
+          <article class="profile-card mp-card">
+            <span class="role" data-i18n="memberOfParliament">Member of Parliament</span>
+            <h3>Hema Malini</h3>
+            <p>BJP | Term: 2024 - Present</p>
+            <ul>
+              <li data-i18n="mpPointOne">Third consecutive term.</li>
+              <li data-i18n="mpPointTwo">Won in 2014, 2019, and 2024.</li>
+              <li data-i18n="mpPointThree">2024 runner-up: Suresh Singh (BSP).</li>
+            </ul>
+          </article>
+
+          <div class="assembly-list" id="assemblyList"></div>
+        </div>
+      </section>
+
+      <section class="history-section" id="history" aria-labelledby="historyTitle" data-dashboard-section hidden>
+        <div class="section-heading">
+          <span class="section-kicker" data-i18n="historyKicker">Deep view</span>
+          <h2 class="section-title-history" id="historyTitle" data-i18n="historyTitle">Political history and past winners</h2>
+          <p data-i18n="historyText">
+            Clean history helps voters understand long-term patterns, not only
+            current headlines.
+          </p>
+        </div>
+        <div class="timeline" id="winnerTimeline"></div>
+      </section>
+
+      <section class="issues-section" id="issues" aria-labelledby="issuesTitle" data-dashboard-section hidden>
+        <div class="section-heading">
+          <span class="section-kicker" data-i18n="issuesKicker">Public voice</span>
+          <h2 id="issuesTitle" data-i18n="issuesTitle">Area issues grid</h2>
+          <p data-i18n="issuesText">
+            People can vote on local issues first. Login, photo upload, and
+            admin verification will come in the next version.
+          </p>
+        </div>
+
+        <div class="issue-grid" id="issueGrid"></div>
+
+        <p class="filter-note" id="filterNote">
+          Showing issues for Govardhan pin code 281502 only.
+        </p>
+        <div class="status-board issues-live-container" id="statusBoard" aria-label="Recent issue status board"></div>
+
+        <form class="feedback-panel submit-local-issue prototype-form" id="report">
+          <div>
+            <span class="section-kicker" data-i18n="prototypeForm">Prototype form</span>
+            <h3 data-i18n="submitIssueTitle">Submit a local issue</h3>
+          </div>
+          <label>
+            <span data-i18n="category">Category</span>
+            <select name="category">
+              <option>Street light</option>
+              <option>Road repair</option>
+              <option>Water supply</option>
+              <option>Sanitation</option>
+              <option>Yamuna cleanliness</option>
+            </select>
+          </label>
+          <label>
+            <span data-i18n="reportArea">Area</span>
+            <select id="reportArea" name="area"></select>
+          </label>
+          <label>
+            <span data-i18n="shortDescription">Short description</span>
+            <textarea name="description" placeholder="Write the issue clearly..."></textarea>
+          </label>
+          <label>
+            <span data-i18n="photoProof">Photo proof</span>
+            <input name="photoProof" type="file" />
+          </label>
+          <button type="submit" class="primary-action" data-i18n="submitForReview">Submit for review</button>
+        </form>
+      </section>
+
+      <section class="builders-section national-builders-section build-india" id="builders" aria-labelledby="buildersTitle" data-dashboard-section hidden>
+        <div class="section-heading">
+          <span class="section-kicker" data-i18n="buildersKicker">India first</span>
+          <h2 id="buildersTitle" data-i18n="buildersTitle">People who helped build India</h2>
+          <p data-i18n="buildersText">
+            A respectful bottom section for national builders, reformers,
+            scientists, and public servants. Photos and entries should be added
+            only with verified sources.
+          </p>
+        </div>
+
+        <div class="builder-grid">
+          <article>
+            <span data-i18n="constitution">Constitution</span>
+            <strong>Dr. B. R. Ambedkar</strong>
+            <p data-i18n="ambedkarText">Key architect of the Constitution of India.</p>
+          </article>
+          <article>
+            <span data-i18n="science">Science</span>
+            <strong>Dr. A. P. J. Abdul Kalam</strong>
+            <p data-i18n="kalamText">Inspired generations through science, service, and education.</p>
+          </article>
+          <article>
+            <span data-i18n="freedom">Freedom</span>
+            <strong>Mahatma Gandhi</strong>
+            <p data-i18n="gandhiText">Led a mass movement based on non-violence and civic courage.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-brand">
+        <strong>Rashtra Sarvopari</strong>
+        <small data-i18n="copyrightText">© 2026 Rashtra Sarvopari. Designed & Developed by Krishna Gopal Sharma. All Rights Reserved.</small>
+      </div>
+      <span data-i18n="footerText">National civic issue tracking platform for Indian districts.</span>
+    </footer>
+
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
