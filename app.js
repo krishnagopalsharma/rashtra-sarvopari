@@ -1,0 +1,619 @@
+import { siteData } from "./data.js";
+
+const loader = document.querySelector("#cinemaLoader");
+const introStatus = document.querySelector("#introStatus");
+const areaSearch = document.querySelector("#areaSearch");
+const stateInput = document.querySelector("#stateInput");
+const districtInput = document.querySelector("#districtInput");
+const areaInput = document.querySelector("#areaInput");
+const pinInput = document.querySelector("#pinInput");
+const areaViewTitle = document.querySelector("#areaViewTitle");
+const heritageTitle = document.querySelector("#heritageTitle");
+const politicalHistoryTitle = document.querySelector("#historyTitle");
+const filterNote = document.querySelector("#filterNote");
+const areaMapCard = document.querySelector("#areaMapCard");
+const areaGallery = document.querySelector("#areaGallery");
+const assemblyList = document.querySelector("#assemblyList");
+const winnerTimeline = document.querySelector("#winnerTimeline");
+const issueGrid = document.querySelector("#issueGrid");
+const statusBoard = document.querySelector("#statusBoard");
+const languageToggle = document.querySelector("#languageToggle");
+const feedbackForm = document.querySelector("#report");
+const reportArea = document.querySelector("#reportArea");
+const categoryInput = feedbackForm?.querySelector("select");
+const locationButton = document.querySelector("#locationButton");
+const clearButton = document.querySelector("#clearButton");
+const openBoardButton = areaSearch?.querySelector(".primary-action");
+const mvpRegionNotice = document.querySelector("#mvpRegionNotice");
+const dashboardSections = [...document.querySelectorAll("[data-dashboard-section]")];
+
+let currentLanguage = "en";
+let showDashboard = false;
+
+const t = (key) => siteData.language[currentLanguage]?.[key] || siteData.language.en[key] || key;
+const translateStatus = (status) => siteData.language[currentLanguage]?.status?.[status] || status;
+const translateCategory = (category) => siteData.language[currentLanguage]?.categories?.[category] || category;
+const mvpRegion = siteData.defaultArea;
+
+const introStorageKey = "rashtraSarvopariIntroSeenV6";
+let introMessageTimer;
+
+const getConnectionProfile = () => {
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+  if (navigator.onLine === false) {
+    return {
+      delay: 5200,
+      message: "Internet required to sync civic data. Opening local preview...",
+    };
+  }
+
+  if (connection?.saveData || ["slow-2g", "2g"].includes(connection?.effectiveType)) {
+    return {
+      delay: 4300,
+      message: "Low internet detected. Loading dashboard carefully...",
+    };
+  }
+
+  if (connection?.effectiveType === "3g") {
+    return {
+      delay: 3400,
+      message: "Optimizing for slower internet...",
+    };
+  }
+
+  return {
+    delay: 2400,
+    message: "Synchronizing national civic data...",
+  };
+};
+
+const setIntroStatus = (message) => {
+  if (introStatus) introStatus.textContent = message;
+};
+
+const startIntroStatusLoop = () => {
+  const profile = getConnectionProfile();
+  const messages = [
+    "Checking secure connection...",
+    profile.message,
+    "Preparing Rashtra Sarvopari dashboard...",
+  ];
+  let index = 0;
+  setIntroStatus(messages[index]);
+  window.clearInterval(introMessageTimer);
+  introMessageTimer = window.setInterval(() => {
+    index = (index + 1) % messages.length;
+    setIntroStatus(messages[index]);
+  }, 760);
+};
+
+const hasSeenIntro = () => {
+  try {
+    return sessionStorage.getItem(introStorageKey) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const markIntroSeen = () => {
+  try {
+    sessionStorage.setItem(introStorageKey, "true");
+  } catch {}
+};
+
+const hideLoader = () => {
+  if (!loader) return;
+  window.clearInterval(introMessageTimer);
+  markIntroSeen();
+  loader.classList.add("is-hidden");
+  document.body.classList.remove("no-scroll");
+  document.body.classList.add("is-ready");
+  window.setTimeout(() => {
+    loader.style.display = "none";
+  }, 650);
+};
+
+if (loader && !hasSeenIntro()) {
+  document.body.classList.add("no-scroll");
+  startIntroStatusLoop();
+  const queueIntroExit = () => {
+    const { delay, message } = getConnectionProfile();
+    setIntroStatus(message);
+    window.setTimeout(hideLoader, Math.max(2200, delay));
+  };
+  if (document.readyState === "complete") {
+    queueIntroExit();
+  } else {
+    window.addEventListener("load", queueIntroExit, { once: true });
+  }
+} else {
+  if (loader) loader.style.display = "none";
+  document.body.classList.remove("no-scroll");
+  document.body.classList.add("is-ready");
+}
+
+window.addEventListener("online", () => setIntroStatus("Connection restored. Syncing civic data..."));
+window.addEventListener("offline", () => setIntroStatus("Internet required to sync civic data."));
+
+const areaOptionsMarkup = () =>
+  `<option value="">${t("selectArea")}</option>` +
+  siteData.areaOptions
+    .map((area) => `<option value="${area.name}" data-pin="${area.pin}">${area.name}</option>`)
+    .join("");
+
+const districtOptionsMarkup = () =>
+  `<option value="">${t("selectDistrict")}</option>` +
+  siteData.upDistricts.map((district) => `<option value="${district}">${district}</option>`).join("");
+
+const renderDistrictOptions = (selectedValue = districtInput.value) => {
+  districtInput.innerHTML = districtOptionsMarkup();
+  if (selectedValue && siteData.upDistricts.includes(selectedValue)) {
+    districtInput.value = selectedValue;
+  }
+};
+
+const renderAreaOptions = () => {
+  const options = areaOptionsMarkup();
+  areaInput.innerHTML = options;
+  reportArea.innerHTML = options;
+  areaInput.value = "";
+  reportArea.value = "";
+  pinInput.value = "";
+};
+
+const renderCategoryOptions = () => {
+  if (!categoryInput) return;
+  const selectedValue = categoryInput.value;
+  categoryInput.innerHTML = siteData.issueCategories
+    .map((category) => `<option value="${category}">${translateCategory(category)}</option>`)
+    .join("");
+  if (selectedValue) categoryInput.value = selectedValue;
+};
+
+const renderAssembly = () => {
+  assemblyList.innerHTML = siteData.assemblySeats
+    .map((seat) => {
+      const roundedRating = Math.round(seat.rating);
+      return `
+        <article class="assembly-card reveal">
+          <span class="party-pill">${seat.party}${seat.reserved ? ` | ${seat.reserved}` : ""}</span>
+          <h3>${seat.name} <small>#${seat.seatNo}</small></h3>
+          <p><strong>${seat.mla}</strong></p>
+          <p>${seat.note}</p>
+          <p>${seat.detail}</p>
+          <div class="rating-line" aria-label="${seat.name} public rating">
+            ${"★".repeat(roundedRating)}${"☆".repeat(5 - roundedRating)} ${seat.rating.toFixed(1)}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+};
+
+const renderTimeline = () => {
+  winnerTimeline.innerHTML = siteData.lokSabha.winners
+    .map(
+      (item) => `
+        <article class="timeline-item reveal">
+          <span>${t("lokSabhaResult")}</span>
+          <strong>${item.year}</strong>
+          <h3>${item.winner}</h3>
+          <p>${item.party} | ${item.note}</p>
+        </article>
+      `,
+    )
+    .join("");
+};
+
+const renderIssues = () => {
+  issueGrid.innerHTML = siteData.issueCategories
+    .map((issue, index) => {
+      const score = 42 + ((index * 9) % 46);
+      const priorityClass = score >= 72 ? "high" : score >= 55 ? "medium" : "normal";
+      return `
+        <article class="issue-card reveal">
+          <span>${t("publicPriority")}</span>
+          <strong>${translateCategory(issue)}</strong>
+          <p>${t("voteProofText")}</p>
+          <div class="issue-meter" aria-label="${issue} priority meter">
+            <i class="${priorityClass}" style="width: ${score}%"></i>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+};
+
+const renderStatusBoard = (selectedArea = siteData.defaultArea.focus, selectedPin = siteData.defaultArea.pin) => {
+  const filteredIssues = siteData.issueReports.filter(
+    (issue) => issue.area === selectedArea && issue.pin === selectedPin,
+  );
+
+  if (!filteredIssues.length) {
+    statusBoard.innerHTML = `
+      <article class="status-item empty-state reveal">
+        <span>${t("noLocalReports")}</span>
+        <strong>${selectedArea}</strong>
+        <p>${t("noReportsTextPrefix")} ${selectedPin} ${t("noReportsTextSuffix")}</p>
+      </article>
+    `;
+    return;
+  }
+
+  statusBoard.innerHTML = filteredIssues
+    .map((issue) => {
+      const statusClass =
+        issue.status === "Resolved" ? "resolved" : issue.status === "In Progress" ? "progress" : "pending";
+      return `
+        <article class="status-item reveal">
+          <span>${translateCategory(issue.category)} | ${issue.locality} | ${issue.pin}</span>
+          <strong><i class="status-dot ${statusClass}"></i>${translateStatus(issue.status)}</strong>
+          <p>${currentLanguage === "hi" && issue.titleHi ? issue.titleHi : issue.title}</p>
+        </article>
+      `;
+    })
+    .join("");
+};
+
+const syncPoliticalHistoryTitle = () => {
+  if (!politicalHistoryTitle) return;
+  const district = districtInput.value || mvpRegion.district;
+  politicalHistoryTitle.textContent =
+    currentLanguage === "hi"
+      ? `${district === "Mathura" ? "मथुरा" : district} निर्वाचन क्षेत्र का राजनीतिक इतिहास`
+      : `${district} Constituency Political History`;
+};
+
+const placeholderMarkup = (areaName) => `
+  <article class="coming-soon-card reveal">
+    <span>${t("mediaUpdate")}</span>
+    <strong>${t("comingSoonTitle")} ${areaName}</strong>
+    <p>${t("comingSoonText")}</p>
+  </article>
+`;
+
+const renderAreaMedia = (areaName) => {
+  const media = siteData.areaMedia?.[areaName];
+  const comingSoon = placeholderMarkup(areaName);
+
+  if (media?.map?.src) {
+    areaMapCard.innerHTML = `
+      <img src="${media.map.src}" alt="${media.map.alt || `${areaName} satellite map`}" />
+      <div class="satellite-overlay">
+        <strong id="activeAreaLabel">${areaName}</strong>
+        <span>${t("satelliteAttribution")} ${media.map.imageDate || "Coming soon"}</span>
+      </div>
+    `;
+  } else {
+    areaMapCard.innerHTML = comingSoon;
+  }
+
+  if (media?.gallery?.length) {
+    areaGallery.innerHTML = media.gallery
+      .map(
+        (item) => `
+          <article class="gallery-card ${item.featured ? "feature" : ""} reveal">
+            <img src="${item.src}" alt="${item.alt || item.caption}" />
+            <span>${item.caption}</span>
+          </article>
+        `,
+      )
+      .join("");
+  } else {
+    areaGallery.innerHTML = comingSoon;
+  }
+};
+
+const setDashboardVisible = (visible) => {
+  showDashboard = visible;
+  dashboardSections.forEach((section) => {
+    section.hidden = !visible;
+    section.classList.toggle("dashboard-enter", visible);
+  });
+};
+
+const setOpenBoardDisabled = (disabled) => {
+  if (!openBoardButton) return;
+  openBoardButton.disabled = disabled;
+  openBoardButton.setAttribute("aria-disabled", String(disabled));
+};
+
+const hideMvpNotice = () => {
+  if (!mvpRegionNotice) return;
+  mvpRegionNotice.classList.remove("is-visible");
+  mvpRegionNotice.setAttribute("aria-hidden", "true");
+  mvpRegionNotice.innerHTML = "";
+};
+
+const showMvpNotice = (message) => {
+  if (!mvpRegionNotice) return;
+  mvpRegionNotice.innerHTML = `
+    <strong>⚠️ CURRENTLY WORK IN PROGRESS</strong>
+    <span>${message}</span>
+  `;
+  mvpRegionNotice.classList.add("is-visible");
+  mvpRegionNotice.setAttribute("aria-hidden", "false");
+};
+
+const isMvpRegionSelected = () =>
+  stateInput.value === mvpRegion.state &&
+  districtInput.value === mvpRegion.district &&
+  areaInput.value === mvpRegion.focus;
+
+const updateMvpRegionGate = ({ forceNotice = false, autoFillGovardhan = false } = {}) => {
+  const selectedState = stateInput.value;
+  const selectedDistrict = districtInput.value;
+  const selectedArea = areaInput.value;
+
+  if (autoFillGovardhan && selectedArea === mvpRegion.focus) {
+    stateInput.value = mvpRegion.state;
+    districtInput.value = mvpRegion.district;
+    pinInput.value = mvpRegion.pin;
+    hideMvpNotice();
+    setOpenBoardDisabled(false);
+    return true;
+  }
+
+  const hasSelection = Boolean(selectedState || selectedDistrict || selectedArea || pinInput.value.trim());
+  const isOutsideState = Boolean(selectedState && selectedState !== mvpRegion.state);
+  const isOutsideDistrict = Boolean(selectedDistrict && selectedDistrict !== mvpRegion.district);
+  const isOutsideArea = Boolean(selectedArea && selectedArea !== mvpRegion.focus);
+
+  if (!hasSelection && !forceNotice) {
+    hideMvpNotice();
+    setOpenBoardDisabled(false);
+    return false;
+  }
+
+  if (isOutsideState || isOutsideDistrict || isOutsideArea || forceNotice) {
+    const regionName = selectedDistrict || selectedArea || selectedState || "This region";
+    const queuedMessage =
+      selectedDistrict && selectedDistrict !== mvpRegion.district
+        ? `${regionName} Board is currently queued. Development is in progress. Switching systems to Govardhan MVP node.`
+        : `Current MVP is live only for ${mvpRegion.focus}, ${mvpRegion.district}, ${mvpRegion.state}.`;
+
+    showMvpNotice(queuedMessage);
+    setOpenBoardDisabled(true);
+    setDashboardVisible(false);
+    return false;
+  }
+
+  hideMvpNotice();
+  setOpenBoardDisabled(false);
+  return false;
+};
+
+const applyLanguage = () => {
+  const dictionary = siteData.language[currentLanguage];
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    node.textContent = dictionary[key] || node.textContent;
+  });
+  languageToggle.textContent = currentLanguage === "en" ? "हिंदी" : "English";
+  languageToggle.textContent = currentLanguage === "en" ? "हिंदी" : "English";
+  languageToggle.textContent = currentLanguage === "en" ? "\u0939\u093f\u0902\u0926\u0940" : "English";
+  languageToggle.classList.toggle("is-active", currentLanguage === "hi");
+  languageToggle.setAttribute(
+    "aria-label",
+    currentLanguage === "en" ? "Switch to Hindi" : "Switch to English",
+  );
+  stateInput.options[0].textContent = t("selectState");
+  const districtValue = districtInput.value;
+  const areaValue = areaInput.value;
+  const reportAreaValue = reportArea.value;
+  renderDistrictOptions(districtValue);
+  areaInput.innerHTML = areaOptionsMarkup();
+  reportArea.innerHTML = areaOptionsMarkup();
+  areaInput.value = areaValue;
+  reportArea.value = reportAreaValue;
+  const issueTextarea = feedbackForm?.querySelector("textarea");
+  if (issueTextarea) issueTextarea.placeholder = t("issuePlaceholder");
+  document.documentElement.lang = currentLanguage === "en" ? "en" : "hi";
+  syncPoliticalHistoryTitle();
+  renderTimeline();
+  renderIssues();
+  renderCategoryOptions();
+  updateMvpRegionGate();
+  if (showDashboard) {
+    const selected = selectedAreaFromForm();
+    if (selected) syncArea(selected.name);
+  }
+};
+
+languageToggle.addEventListener("click", () => {
+  currentLanguage = currentLanguage === "en" ? "hi" : "en";
+  applyLanguage();
+});
+
+const syncArea = (areaName) => {
+  const selected = siteData.areaOptions.find((area) => area.name === areaName) || siteData.areaOptions[0];
+  areaInput.value = selected.name;
+  reportArea.value = selected.name;
+  pinInput.value = selected.pin;
+  areaViewTitle.textContent = `${selected.name} ${t("dashboardSuffix")}`;
+  heritageTitle.textContent = `${selected.name} ${t("photoGallerySuffix")}`;
+  syncPoliticalHistoryTitle();
+  filterNote.textContent = `${t("filterNotePrefix")} ${selected.name} ${t("filterNoteMiddle")} ${selected.pin} ${t("filterNoteSuffix")}`;
+  renderAreaMedia(selected.name);
+  renderStatusBoard(selected.name, selected.pin);
+  setupReveal();
+};
+
+const selectedAreaFromForm = () => siteData.areaOptions.find((area) => area.name === areaInput.value);
+
+const hideOnEdit = () => {
+  if (showDashboard) setDashboardVisible(false);
+};
+
+areaInput.addEventListener("change", () => {
+  const selected = selectedAreaFromForm();
+  pinInput.value = selected?.pin || "";
+  if (reportArea) reportArea.value = areaInput.value;
+  hideOnEdit();
+  updateMvpRegionGate({ autoFillGovardhan: true });
+});
+
+reportArea.addEventListener("change", () => {
+  areaInput.value = reportArea.value;
+  const selected = selectedAreaFromForm();
+  pinInput.value = selected?.pin || "";
+  hideOnEdit();
+});
+
+[stateInput, districtInput, pinInput].forEach((input) => {
+  input.addEventListener("change", () => {
+    hideOnEdit();
+    updateMvpRegionGate();
+  });
+  input.addEventListener("input", () => {
+    pinInput.setCustomValidity("");
+    hideOnEdit();
+    updateMvpRegionGate();
+  });
+});
+
+areaSearch.addEventListener("submit", (event) => {
+  event.preventDefault();
+  pinInput.setCustomValidity("");
+  if (!areaSearch.reportValidity()) return;
+  const selected = selectedAreaFromForm();
+  if (!selected || !isMvpRegionSelected()) {
+    updateMvpRegionGate({ forceNotice: true });
+    setDashboardVisible(false);
+    return;
+  }
+  if (pinInput.value.trim() !== mvpRegion.pin) {
+    pinInput.setCustomValidity(`${t("invalidPinPrefix")} ${mvpRegion.pin} ${t("invalidPinMiddle")} ${mvpRegion.focus}.`);
+    pinInput.reportValidity();
+    setDashboardVisible(false);
+    return;
+  }
+  syncArea(selected.name);
+  setDashboardVisible(true);
+  document.querySelector("#mapZoom").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+areaSearch.addEventListener("reset", () => {
+  window.setTimeout(() => {
+    stateInput.value = "";
+    districtInput.value = "";
+    areaInput.value = "";
+    reportArea.value = "";
+    pinInput.value = "";
+    hideMvpNotice();
+    setOpenBoardDisabled(false);
+    setDashboardVisible(false);
+  }, 0);
+});
+
+clearButton.addEventListener("click", () => {
+  hideMvpNotice();
+  setOpenBoardDisabled(false);
+  setDashboardVisible(false);
+});
+
+const setMvpLocation = () => {
+  stateInput.value = mvpRegion.state;
+  districtInput.value = mvpRegion.district;
+  areaInput.value = mvpRegion.focus;
+  reportArea.value = mvpRegion.focus;
+  pinInput.value = mvpRegion.pin;
+  updateMvpRegionGate({ autoFillGovardhan: true });
+  setDashboardVisible(false);
+};
+
+const requestLocation = () => {
+  if (!("geolocation" in navigator)) return;
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      const nearMathura = latitude > 27 && latitude < 28.2 && longitude > 77 && longitude < 78.4;
+      if (nearMathura) setMvpLocation();
+    },
+    () => {},
+    { enableHighAccuracy: false, maximumAge: 300000, timeout: 5000 },
+  );
+};
+
+locationButton.addEventListener("click", requestLocation);
+
+if ("permissions" in navigator && "geolocation" in navigator) {
+  navigator.permissions
+    .query({ name: "geolocation" })
+    .then((permission) => {
+      if (permission.state === "granted") requestLocation();
+    })
+    .catch(() => {});
+}
+
+if (feedbackForm) {
+  feedbackForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const button = feedbackForm.querySelector("button");
+    const original = button.textContent;
+    const descriptionInput = feedbackForm.querySelector('[name="description"]');
+    const selectedArea = reportArea.value || areaInput.value || mvpRegion.focus;
+    const selectedAreaMeta = siteData.areaOptions.find((area) => area.name === selectedArea);
+    const currentPincode = selectedAreaMeta?.pin || pinInput.value || mvpRegion.pin;
+    const category = categoryInput?.value || siteData.issueCategories[0];
+    const description = descriptionInput?.value.trim() || "No detailed summary provided.";
+    const liveIssueCard = document.createElement("article");
+    const meta = document.createElement("span");
+    const status = document.createElement("strong");
+    const statusText = document.createElement("span");
+    const body = document.createElement("p");
+
+    liveIssueCard.className = "status-item live-issue-card reveal is-visible";
+    meta.textContent = `${translateCategory(category)} | ${selectedArea.toUpperCase()} | ${currentPincode}`;
+    status.innerHTML = '<i class="status-dot pending"></i>';
+    statusText.textContent = currentLanguage === "hi" ? "सत्यापन लंबित" : "Pending Verification";
+    status.append(statusText);
+    body.textContent = description;
+    liveIssueCard.append(meta, status, body);
+    statusBoard.prepend(liveIssueCard);
+
+    button.textContent = t("savedLocally");
+    button.disabled = true;
+    feedbackForm.reset();
+    reportArea.value = areaInput.value || mvpRegion.focus;
+    window.setTimeout(() => {
+      button.textContent = original;
+      button.disabled = false;
+    }, 1800);
+  });
+}
+
+const setupReveal = () => {
+  document
+    .querySelectorAll(
+      ".section-heading, .stat-card, .profile-card, .assembly-card, .timeline-item, .issue-card, .feedback-panel, .builder-grid article, .satellite-card, .heritage-strip, .gallery-card, .coming-soon-card, .report-card-strip article, .status-item",
+    )
+    .forEach((node) => node.classList.add("reveal"));
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.16 },
+  );
+
+  document.querySelectorAll(".reveal").forEach((node) => observer.observe(node));
+};
+
+renderAreaOptions();
+renderDistrictOptions();
+renderCategoryOptions();
+renderAssembly();
+renderTimeline();
+renderIssues();
+applyLanguage();
+updateMvpRegionGate();
+setDashboardVisible(false);
+setupReveal();
