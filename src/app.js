@@ -26,9 +26,19 @@ const clearButton = document.querySelector("#clearButton");
 const openBoardButton = areaSearch?.querySelector(".primary-action");
 const mvpRegionNotice = document.querySelector("#mvpRegionNotice");
 const dashboardSections = [...document.querySelectorAll("[data-dashboard-section]")];
+const citizenAccountForm = document.querySelector("#citizenAccountForm");
+const netaAccountForm = document.querySelector("#netaAccountForm");
+const citizenAccountStatus = document.querySelector("#citizenAccountStatus");
+const netaAccountStatus = document.querySelector("#netaAccountStatus");
+const galleryLightbox = document.querySelector("#galleryLightbox");
+const lightboxImage = document.querySelector("#lightboxImage");
+const lightboxTitle = document.querySelector("#lightboxTitle");
+const lightboxDescription = document.querySelector("#lightboxDescription");
+const lightboxClose = document.querySelector("#lightboxClose");
 
 let currentLanguage = "en";
 let showDashboard = false;
+let verifiedNetaUnlocked = localStorage.getItem("rashtraVerifiedNeta") === "true";
 
 const t = (key) => siteData.language[currentLanguage]?.[key] || siteData.language.en[key] || key;
 const translateStatus = (status) => siteData.language[currentLanguage]?.status?.[status] || status;
@@ -136,11 +146,18 @@ if (loader && !hasSeenIntro()) {
 window.addEventListener("online", () => setIntroStatus("Connection restored. Syncing civic data..."));
 window.addEventListener("offline", () => setIntroStatus("Internet required to sync civic data."));
 
-const areaOptionsMarkup = () =>
+const mathuraTehsilNames = siteData.mathuraTehsils || ["Govardhan", "Vrindavan", "Mant", "Chhata", "Baldeo"];
+
+const areaOptionsMarkup = (areas = siteData.areaOptions) =>
   `<option value="">${t("selectArea")}</option>` +
-  siteData.areaOptions
+  areas
     .map((area) => `<option value="${area.name}" data-pin="${area.pin}">${area.name}</option>`)
     .join("");
+
+const mathuraTehsilOptions = () =>
+  mathuraTehsilNames
+    .map((name) => siteData.areaOptions.find((area) => area.name === name))
+    .filter(Boolean);
 
 const districtOptionsMarkup = () =>
   `<option value="">${t("selectDistrict")}</option>` +
@@ -153,13 +170,43 @@ const renderDistrictOptions = (selectedValue = districtInput.value) => {
   }
 };
 
-const renderAreaOptions = () => {
-  const options = areaOptionsMarkup();
+const renderAreaOptions = (selectedValue = "") => {
+  const options = areaOptionsMarkup(mathuraTehsilOptions());
   areaInput.innerHTML = options;
   reportArea.innerHTML = options;
-  areaInput.value = "";
+  areaInput.value = selectedValue && mathuraTehsilNames.includes(selectedValue) ? selectedValue : "";
   reportArea.value = "";
-  pinInput.value = "";
+  if (!areaInput.value) pinInput.value = "";
+};
+
+const setSelectLocked = (select, locked) => {
+  select.disabled = locked;
+  select.closest("label")?.classList.toggle("is-locked", locked);
+};
+
+const syncDropdownChain = ({ preserveArea = false } = {}) => {
+  const stateSelected = Boolean(stateInput.value);
+  const districtSelected = Boolean(districtInput.value);
+  const districtIsMathura = districtInput.value === mvpRegion.district;
+  const currentArea = preserveArea ? areaInput.value : "";
+
+  setSelectLocked(districtInput, !stateSelected);
+  setSelectLocked(areaInput, !stateSelected || !districtSelected || !districtIsMathura);
+
+  if (!stateSelected) {
+    districtInput.value = "";
+    renderAreaOptions();
+    pinInput.value = "";
+    return;
+  }
+
+  if (!districtSelected || !districtIsMathura) {
+    renderAreaOptions();
+    pinInput.value = "";
+    return;
+  }
+
+  renderAreaOptions(currentArea);
 };
 
 const renderCategoryOptions = () => {
@@ -172,25 +219,43 @@ const renderCategoryOptions = () => {
 };
 
 const renderAssembly = () => {
-  assemblyList.innerHTML = siteData.assemblySeats
-    .map((seat) => {
-      const roundedRating = Math.round(seat.rating);
-      return `
-        <article class="assembly-card reveal">
-          <span class="party-pill">${seat.party}${seat.reserved ? ` | ${seat.reserved}` : ""}</span>
-          <h3>${seat.name} <small>#${seat.seatNo}</small></h3>
-          <p><strong>${seat.mla}</strong></p>
-          <p>${seat.note}</p>
-          <p>${seat.detail}</p>
-          <div class="rating-line" aria-label="${seat.name} public rating">
-            ${"★".repeat(roundedRating)}${"☆".repeat(5 - roundedRating)} ${seat.rating.toFixed(1)}
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-};
+  const govardhanSeat =
+    siteData.assemblySeats.find((seat) => seat.name === mvpRegion.focus) || siteData.assemblySeats[0];
+  const affidavit = siteData.govardhanAffidavit;
+  const verifiedBadge = verifiedNetaUnlocked
+    ? '<span class="verified-badge">Verified Neta</span>'
+    : '<span class="verified-badge is-pending">Docs pending</span>';
 
+  assemblyList.innerHTML = `
+    <div class="representative-hierarchy reveal">
+      <article class="state-node">
+        <span class="tier-label">State Node</span>
+        <strong>${siteData.stateLeadership.title}</strong>
+        <p>${siteData.stateLeadership.summary}</p>
+        <div class="node-pills">
+          ${siteData.stateLeadership.points.map((point) => `<span>${point}</span>`).join("")}
+        </div>
+      </article>
+
+      <article class="tehsil-node assembly-card">
+        <div class="node-head">
+          <span class="tier-label">Tehsil Node | Assembly #${govardhanSeat.seatNo}</span>
+          ${verifiedBadge}
+        </div>
+        <h3>${govardhanSeat.name} MLA</h3>
+        <p class="leader-name">${govardhanSeat.mla}</p>
+        <p>${govardhanSeat.party} | ${govardhanSeat.note}</p>
+        <p>${govardhanSeat.detail}</p>
+        <div class="affidavit-tabs" role="tablist" aria-label="Govardhan MLA details">
+          <button type="button" class="affidavit-tab is-active" data-tab="summary">Affidavit Summary</button>
+          <button type="button" class="affidavit-tab" data-tab="assets">Asset Details</button>
+          <button type="button" class="affidavit-tab" data-tab="contact">Public Contact</button>
+        </div>
+        <div class="affidavit-panel" id="affidavitPanel">${affidavit.summary}</div>
+      </article>
+    </div>
+  `;
+};
 const renderTimeline = () => {
   winnerTimeline.innerHTML = siteData.lokSabha.winners
     .map(
@@ -279,10 +344,30 @@ const renderAreaMedia = (areaName) => {
 
   if (media?.map?.src) {
     areaMapCard.innerHTML = `
-      <img src="${media.map.src}" alt="${media.map.alt || `${areaName} satellite map`}" />
-      <div class="satellite-overlay">
-        <strong id="activeAreaLabel">${areaName}</strong>
-        <span>${t("satelliteAttribution")} ${media.map.imageDate || "Coming soon"}</span>
+      <div class="map-bento">
+        <article class="map-tile map-tile-main">
+          <img class="clean-map-image" src="${media.map.src}" alt="${media.map.alt || `${areaName} satellite map`}" />
+          <div class="map-scrim" aria-hidden="true"></div>
+          <div class="satellite-overlay">
+            <strong id="activeAreaLabel">${areaName} Dashboard</strong>
+            <span>${t("satelliteAttribution")} ${media.map.imageDate || "Coming soon"}</span>
+          </div>
+        </article>
+        <article class="map-tile map-metric">
+          <span>Active node</span>
+          <strong>${areaName}</strong>
+          <p>${mvpRegion.district}, ${mvpRegion.state}</p>
+        </article>
+        <article class="map-tile map-metric">
+          <span>Pin code</span>
+          <strong>${siteData.areaOptions.find((area) => area.name === areaName)?.pin || "Queued"}</strong>
+          <p>Used as primary issue filter.</p>
+        </article>
+        <article class="map-tile map-metric">
+          <span>Map clarity</span>
+          <strong>Clean civic layer</strong>
+          <p>Labels are visually softened so the local boundary stays primary.</p>
+        </article>
       </div>
     `;
   } else {
@@ -293,7 +378,7 @@ const renderAreaMedia = (areaName) => {
     areaGallery.innerHTML = media.gallery
       .map(
         (item) => `
-          <article class="gallery-card ${item.featured ? "feature" : ""} reveal">
+          <article class="gallery-card ${item.featured ? "feature" : ""} reveal" role="button" tabindex="0" data-src="${item.src}" data-title="${item.caption}" data-description="${item.description || item.alt || item.caption}">
             <img src="${item.src}" alt="${item.alt || item.caption}" />
             <span>${item.caption}</span>
           </article>
@@ -350,6 +435,9 @@ const updateMvpRegionGate = ({ forceNotice = false, autoFillGovardhan = false } 
     stateInput.value = mvpRegion.state;
     districtInput.value = mvpRegion.district;
     pinInput.value = mvpRegion.pin;
+    syncDropdownChain({ preserveArea: true });
+    areaInput.value = mvpRegion.focus;
+    reportArea.value = mvpRegion.focus;
     hideMvpNotice();
     setOpenBoardDisabled(false);
     return true;
@@ -403,10 +491,9 @@ const applyLanguage = () => {
   const areaValue = areaInput.value;
   const reportAreaValue = reportArea.value;
   renderDistrictOptions(districtValue);
-  areaInput.innerHTML = areaOptionsMarkup();
-  reportArea.innerHTML = areaOptionsMarkup();
-  areaInput.value = areaValue;
+  renderAreaOptions(areaValue);
   reportArea.value = reportAreaValue;
+  syncDropdownChain({ preserveArea: true });
   const issueTextarea = feedbackForm?.querySelector("textarea");
   if (issueTextarea) issueTextarea.placeholder = t("issuePlaceholder");
   document.documentElement.lang = currentLanguage === "en" ? "en" : "hi";
@@ -461,11 +548,20 @@ reportArea.addEventListener("change", () => {
   hideOnEdit();
 });
 
-[stateInput, districtInput, pinInput].forEach((input) => {
+[stateInput, districtInput].forEach((input) => {
   input.addEventListener("change", () => {
+    syncDropdownChain({ preserveArea: input === districtInput });
     hideOnEdit();
     updateMvpRegionGate();
   });
+});
+
+pinInput.addEventListener("change", () => {
+  hideOnEdit();
+  updateMvpRegionGate();
+});
+
+[stateInput, districtInput, pinInput].forEach((input) => {
   input.addEventListener("input", () => {
     pinInput.setCustomValidity("");
     hideOnEdit();
@@ -501,6 +597,7 @@ areaSearch.addEventListener("reset", () => {
     areaInput.value = "";
     reportArea.value = "";
     pinInput.value = "";
+    syncDropdownChain();
     hideMvpNotice();
     setOpenBoardDisabled(false);
     setDashboardVisible(false);
@@ -516,6 +613,7 @@ clearButton.addEventListener("click", () => {
 const setMvpLocation = () => {
   stateInput.value = mvpRegion.state;
   districtInput.value = mvpRegion.district;
+  syncDropdownChain({ preserveArea: true });
   areaInput.value = mvpRegion.focus;
   reportArea.value = mvpRegion.focus;
   pinInput.value = mvpRegion.pin;
@@ -565,14 +663,14 @@ if (feedbackForm) {
     const statusText = document.createElement("span");
     const body = document.createElement("p");
 
-    liveIssueCard.className = "status-item live-issue-card reveal is-visible";
+    liveIssueCard.className = "issue-card live-issue-card reveal is-visible";
     meta.textContent = `${translateCategory(category)} | ${selectedArea.toUpperCase()} | ${currentPincode}`;
     status.innerHTML = '<i class="status-dot pending"></i>';
     statusText.textContent = currentLanguage === "hi" ? "सत्यापन लंबित" : "Pending Verification";
     status.append(statusText);
     body.textContent = description;
     liveIssueCard.append(meta, status, body);
-    statusBoard.prepend(liveIssueCard);
+    issueGrid.prepend(liveIssueCard);
 
     button.textContent = t("savedLocally");
     button.disabled = true;
@@ -584,6 +682,83 @@ if (feedbackForm) {
     }, 1800);
   });
 }
+
+const openLightbox = (card) => {
+  if (!galleryLightbox || !lightboxImage || !lightboxTitle || !lightboxDescription) return;
+  lightboxImage.src = card.dataset.src;
+  lightboxImage.alt = card.dataset.title || "Gallery image";
+  lightboxTitle.textContent = card.dataset.title || "";
+  lightboxDescription.textContent = card.dataset.description || "";
+  galleryLightbox.hidden = false;
+  document.body.classList.add("no-scroll");
+  lightboxClose?.focus();
+};
+
+const closeLightbox = () => {
+  if (!galleryLightbox) return;
+  galleryLightbox.hidden = true;
+  document.body.classList.remove("no-scroll");
+};
+
+areaGallery.addEventListener("click", (event) => {
+  const card = event.target.closest(".gallery-card");
+  if (card) openLightbox(card);
+});
+
+areaGallery.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target.closest(".gallery-card");
+  if (!card) return;
+  event.preventDefault();
+  openLightbox(card);
+});
+
+lightboxClose?.addEventListener("click", closeLightbox);
+galleryLightbox?.addEventListener("click", (event) => {
+  if (event.target === galleryLightbox) closeLightbox();
+});
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && galleryLightbox && !galleryLightbox.hidden) closeLightbox();
+});
+
+assemblyList.addEventListener("click", (event) => {
+  const tab = event.target.closest(".affidavit-tab");
+  if (!tab) return;
+  const panel = document.querySelector("#affidavitPanel");
+  if (!panel) return;
+  assemblyList.querySelectorAll(".affidavit-tab").forEach((button) => button.classList.remove("is-active"));
+  tab.classList.add("is-active");
+  panel.classList.remove("is-swapping");
+  window.requestAnimationFrame(() => {
+    panel.classList.add("is-swapping");
+    panel.textContent = siteData.govardhanAffidavit[tab.dataset.tab] || siteData.govardhanAffidavit.summary;
+  });
+});
+
+citizenAccountForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(citizenAccountForm);
+  const name = formData.get("citizenName")?.toString().trim() || "Public user";
+  const pin = formData.get("citizenPin")?.toString().trim() || mvpRegion.pin;
+  localStorage.setItem("rashtraCitizen", JSON.stringify({ name, pin }));
+  if (citizenAccountStatus) {
+    citizenAccountStatus.textContent = `${name} logged in for pin ${pin}. Issues will stay anonymous for public view.`;
+  }
+});
+
+netaAccountForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(netaAccountForm);
+  const name = formData.get("netaName")?.toString().trim() || "Representative";
+  const pin = formData.get("netaPin")?.toString().trim() || mvpRegion.pin;
+  verifiedNetaUnlocked = true;
+  localStorage.setItem("rashtraVerifiedNeta", "true");
+  if (netaAccountStatus) {
+    netaAccountStatus.textContent = `${name} verification documents received for pin ${pin}. Verified badge enabled in this browser.`;
+  }
+  renderAssembly();
+  setupReveal();
+});
 
 const setupReveal = () => {
   document
@@ -609,6 +784,7 @@ const setupReveal = () => {
 
 renderAreaOptions();
 renderDistrictOptions();
+syncDropdownChain();
 renderCategoryOptions();
 renderAssembly();
 renderTimeline();
@@ -617,3 +793,4 @@ applyLanguage();
 updateMvpRegionGate();
 setDashboardVisible(false);
 setupReveal();
+

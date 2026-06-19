@@ -92,6 +92,20 @@ export const siteData = {
     { name: "Mant", pin: "281202", type: "Assembly area" },
     { name: "Baldeo", pin: "281301", type: "SC reserved assembly area" },
   ],
+  mathuraTehsils: ["Govardhan", "Vrindavan", "Mant", "Chhata", "Baldeo"],
+  stateLeadership: {
+    title: "Uttar Pradesh Executive Leadership",
+    summary: "State-level policy, departments, and district administration follow-up node for civic delivery.",
+    points: ["State: Uttar Pradesh", "District focus: Mathura", "MVP node: Govardhan"],
+  },
+  govardhanAffidavit: {
+    summary:
+      "Meghshyam Singh represents Govardhan Assembly Constituency No. 83. Full affidavit fields should be verified from official election documents before public release.",
+    assets:
+      "Asset and liability details are reserved for verified affidavit import. This tab is ready for structured property, income, and liability data.",
+    contact:
+      "Public contact details should be published only after representative office verification. Constituency grievance routing is prepared for Govardhan, pin 281502.",
+  },
   areaMedia: {
     Mathura: {
       map: {
@@ -118,22 +132,26 @@ export const siteData = {
           src: "assets/kusum-sarovar-preview.png",
           alt: "Kusum Sarovar heritage preview",
           caption: "Kusum Sarovar",
+          description: "Historic sandstone ghats and waterbody near Govardhan, used here as a visual identity anchor for the local gallery.",
           featured: true,
         },
         {
           src: "assets/govardhan-heritage.jpg",
           alt: "Govardhan heritage view",
           caption: "Govardhan Parvat",
+          description: "Sacred Govardhan landscape and parikrama area, shown separately from the civic issue map.",
         },
         {
           src: "assets/mathura-temple-day.jpg",
           alt: "Temple view near Mathura district",
           caption: "Radha Kund route",
+          description: "Route-side heritage visual connected with the Govardhan and Radha Kund movement corridor.",
         },
         {
           src: "assets/mathura-heritage-hero.jpg",
           alt: "Mathura heritage temple at night",
           caption: "Mansi Ganga / Danghati",
+          description: "Night heritage atmosphere around the Mansi Ganga and Danghati belt for gallery preview.",
         },
       ],
     },
