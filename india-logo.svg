@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" role="img" aria-label="India map logo">
+  <defs>
+    <filter id="goldGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.8" result="blur"/>
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="1 0 0 0 0.98  0 0.78 0 0 0.58  0 0 0.2 0 0.02  0 0 0 0.92 0"
+        result="goldBlur"
+      />
+      <feMerge>
+        <feMergeNode in="goldBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="mapFill" x1="54" y1="20" x2="178" y2="242" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e8b11f" stop-opacity="0.18"/>
+      <stop offset="0.48" stop-color="#11231d" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#0d6b57" stop-opacity="0.16"/>
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#goldGlow)" stroke="#e7ad1d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path
+      d="M91 13
+         C100 17 106 20 112 27
+         C109 36 114 43 126 45
+         C136 47 140 55 139 64
+         C151 66 158 75 157 88
+         C169 94 179 103 176 115
+         C171 128 160 136 154 148
+         C151 165 146 178 139 192
+         C132 207 128 224 124 243
+         C121 256 113 266 106 270
+         C99 259 95 244 88 231
+         C81 217 67 208 62 193
+         C57 179 59 166 49 154
+         C42 146 40 136 45 126
+         C34 119 29 109 34 98
+         C41 85 54 84 58 70
+         C62 58 69 50 80 45
+         C76 33 82 22 91 13Z"
+      fill="url(#mapFill)"
+    />
+    <path
+      d="M155 87
+         C168 78 181 80 191 70
+         C201 59 213 58 219 67
+         C213 78 219 87 229 92
+         C218 103 204 105 193 111
+         C181 118 168 114 160 105
+         C154 99 152 93 155 87Z"
+      fill="url(#mapFill)"
+    />
+    <path d="M153 96 C166 95 175 99 186 103" fill="none" stroke-width="3.8" opacity="0.9"/>
+  </g>
+</svg>
