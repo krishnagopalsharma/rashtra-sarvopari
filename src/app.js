@@ -35,15 +35,69 @@ const lightboxImage = document.querySelector("#lightboxImage");
 const lightboxTitle = document.querySelector("#lightboxTitle");
 const lightboxDescription = document.querySelector("#lightboxDescription");
 const lightboxClose = document.querySelector("#lightboxClose");
+const accountButton = document.querySelector("#accountButton");
+const accountModal = document.querySelector("#accountModal");
+const accountModalClose = document.querySelector("#accountModalClose");
+const quickAccountForm = document.querySelector("#quickAccountForm");
 
 let currentLanguage = "en";
 let showDashboard = false;
 let verifiedNetaUnlocked = localStorage.getItem("rashtraVerifiedNeta") === "true";
+let currentUser = null;
 
 const t = (key) => siteData.language[currentLanguage]?.[key] || siteData.language.en[key] || key;
 const translateStatus = (status) => siteData.language[currentLanguage]?.status?.[status] || status;
 const translateCategory = (category) => siteData.language[currentLanguage]?.categories?.[category] || category;
 const mvpRegion = siteData.defaultArea;
+const userStorageKey = "rashtra_user";
+const issueStorageKey = "rashtra_issues";
+
+const readJson = (key, fallback) => {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeJson = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const loadCurrentUser = () => {
+  currentUser = readJson(userStorageKey, null);
+  accountButton?.classList.toggle("is-logged-in", Boolean(currentUser));
+  if (accountButton) {
+    accountButton.textContent = currentUser ? `${currentUser.name} | ${currentUser.pincode}` : "Signup / Create Account";
+  }
+  return currentUser;
+};
+
+const loadCitizenIssues = () => readJson(issueStorageKey, []);
+
+const saveCitizenIssue = (issue) => {
+  const issues = loadCitizenIssues();
+  issues.unshift(issue);
+  writeJson(issueStorageKey, issues.slice(0, 80));
+};
+
+const selectedIssueContext = () => {
+  const selectedArea = areaInput.value || mvpRegion.focus;
+  const selectedAreaMeta = siteData.areaOptions.find((area) => area.name === selectedArea);
+  return {
+    area: selectedArea,
+    pin: selectedAreaMeta?.pin || pinInput.value || mvpRegion.pin,
+  };
+};
+
+const escapeHtml = (value) =>
+  value
+    .toString()
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 
 const introStorageKey = "rashtraSarvopariIntroSeenV6";
 let introMessageTimer;
@@ -273,52 +327,118 @@ const renderTimeline = () => {
 
 const renderIssues = () => {
   issueGrid.innerHTML = siteData.issueCategories
-    .map((issue, index) => {
-      const score = 42 + ((index * 9) % 46);
-      const priorityClass = score >= 72 ? "high" : score >= 55 ? "medium" : "normal";
-      return `
-        <article class="issue-card reveal">
+    .map(
+      (issue) => `
+        <button class="issue-card priority-card reveal" type="button" data-category="${issue}" aria-label="Write issue for ${translateCategory(issue)}">
           <span>${t("publicPriority")}</span>
           <strong>${translateCategory(issue)}</strong>
-          <p>${t("voteProofText")}</p>
-          <div class="issue-meter" aria-label="${issue} priority meter">
-            <i class="${priorityClass}" style="width: ${score}%"></i>
-          </div>
-        </article>
-      `;
-    })
+          <p>Click to write your real opinion or local issue for this category.</p>
+          <small>Write raye</small>
+        </button>
+      `,
+    )
     .join("");
 };
 
 const renderStatusBoard = (selectedArea = siteData.defaultArea.focus, selectedPin = siteData.defaultArea.pin) => {
-  const filteredIssues = siteData.issueReports.filter(
-    (issue) => issue.area === selectedArea && issue.pin === selectedPin,
-  );
+  const filteredIssues = loadCitizenIssues().filter((issue) => issue.area === selectedArea);
 
   if (!filteredIssues.length) {
     statusBoard.innerHTML = `
       <article class="status-item empty-state reveal">
-        <span>${t("noLocalReports")}</span>
-        <strong>${selectedArea}</strong>
-        <p>${t("noReportsTextPrefix")} ${selectedPin} ${t("noReportsTextSuffix")}</p>
+        <span>Citizen feed</span>
+        <strong>No active issues reported by citizens in this area yet.</strong>
+        <p>Be the first to write.</p>
       </article>
     `;
     return;
   }
 
   statusBoard.innerHTML = filteredIssues
-    .map((issue) => {
-      const statusClass =
-        issue.status === "Resolved" ? "resolved" : issue.status === "In Progress" ? "progress" : "pending";
-      return `
-        <article class="status-item reveal">
-          <span>${translateCategory(issue.category)} | ${issue.locality} | ${issue.pin}</span>
-          <strong><i class="status-dot ${statusClass}"></i>${translateStatus(issue.status)}</strong>
-          <p>${currentLanguage === "hi" && issue.titleHi ? issue.titleHi : issue.title}</p>
+    .map(
+      (issue) => `
+        <article class="status-item live-issue-card-real reveal">
+          <span>${translateCategory(issue.category)} | ${escapeHtml(issue.area)} | ${escapeHtml(issue.pincode)}</span>
+          <strong><i class="status-dot pending"></i>Live Citizen Feed</strong>
+          <p>"${escapeHtml(issue.text)}"</p>
+          <small>Reported by: <b>${escapeHtml(issue.name)}</b></small>
         </article>
-      `;
-    })
+      `,
+    )
     .join("");
+};
+
+const openAccountModal = () => {
+  if (!accountModal) return;
+  accountModal.hidden = false;
+  document.body.classList.add("no-scroll");
+  accountModal.querySelector("input")?.focus();
+};
+
+const closeAccountModal = () => {
+  if (!accountModal) return;
+  accountModal.hidden = true;
+  document.body.classList.remove("no-scroll");
+};
+
+const publishCitizenIssue = ({ category, text, user }) => {
+  const context = selectedIssueContext();
+  const issue = {
+    id: `issue-${Date.now()}`,
+    category,
+    text: text.trim(),
+    name: user.name,
+    pincode: user.pincode || context.pin,
+    area: context.area,
+    createdAt: new Date().toISOString(),
+  };
+  saveCitizenIssue(issue);
+  renderStatusBoard(context.area, context.pin);
+  setupReveal();
+};
+
+const openOpinionBox = (category, user) => {
+  const existing = document.querySelector(".opinion-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.className = "opinion-modal";
+  overlay.innerHTML = `
+    <form class="opinion-panel">
+      <button class="modal-close" type="button" aria-label="Close opinion modal">×</button>
+      <span class="section-kicker">Citizen issue</span>
+      <h3>Write your opinion/issue for ${escapeHtml(translateCategory(category))}</h3>
+      <p>Posting as <b>${escapeHtml(user.name)}</b> | Pin: ${escapeHtml(user.pincode)}</p>
+      <textarea name="opinionText" rows="5" placeholder="Yahan apni asli shikayat ya raye likhein..." required></textarea>
+      <div class="opinion-actions">
+        <button type="submit" class="primary-action">Live Publish Karein</button>
+        <button type="button" class="ghost-action" data-cancel>Cancel</button>
+      </div>
+    </form>
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.classList.add("no-scroll");
+  overlay.querySelector("textarea")?.focus();
+
+  const close = () => {
+    overlay.remove();
+    document.body.classList.remove("no-scroll");
+  };
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay || event.target.closest(".modal-close") || event.target.closest("[data-cancel]")) {
+      close();
+    }
+  });
+
+  overlay.querySelector("form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = overlay.querySelector("textarea")?.value.trim();
+    if (!text) return;
+    publishCitizenIssue({ category, text, user });
+    close();
+  });
 };
 
 const syncPoliticalHistoryTitle = () => {
@@ -513,6 +633,34 @@ languageToggle.addEventListener("click", () => {
   applyLanguage();
 });
 
+accountButton?.addEventListener("click", openAccountModal);
+accountModalClose?.addEventListener("click", closeAccountModal);
+accountModal?.addEventListener("click", (event) => {
+  if (event.target === accountModal) closeAccountModal();
+});
+
+quickAccountForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(quickAccountForm);
+  const name = formData.get("quickName")?.toString().trim();
+  const pincode = formData.get("quickPin")?.toString().trim();
+  if (!name || !pincode) return;
+  writeJson(userStorageKey, { name, pincode });
+  loadCurrentUser();
+  closeAccountModal();
+});
+
+issueGrid.addEventListener("click", (event) => {
+  const card = event.target.closest(".priority-card");
+  if (!card) return;
+  const user = loadCurrentUser();
+  if (!user) {
+    openAccountModal();
+    return;
+  }
+  openOpinionBox(card.dataset.category || "Local Issue", user);
+});
+
 const syncArea = (areaName) => {
   const selected = siteData.areaOptions.find((area) => area.name === areaName) || siteData.areaOptions[0];
   areaInput.value = selected.name;
@@ -657,6 +805,24 @@ if (feedbackForm) {
     const currentPincode = selectedAreaMeta?.pin || pinInput.value || mvpRegion.pin;
     const category = categoryInput?.value || siteData.issueCategories[0];
     const description = descriptionInput?.value.trim() || "No detailed summary provided.";
+    const user = loadCurrentUser();
+
+    if (!user) {
+      openAccountModal();
+      return;
+    }
+
+    publishCitizenIssue({ category, text: description, user });
+    button.textContent = t("savedLocally");
+    button.disabled = true;
+    feedbackForm.reset();
+    reportArea.value = areaInput.value || mvpRegion.focus;
+    window.setTimeout(() => {
+      button.textContent = original;
+      button.disabled = false;
+    }, 1800);
+    return;
+
     const liveIssueCard = document.createElement("article");
     const meta = document.createElement("span");
     const status = document.createElement("strong");
@@ -740,7 +906,8 @@ citizenAccountForm?.addEventListener("submit", (event) => {
   const formData = new FormData(citizenAccountForm);
   const name = formData.get("citizenName")?.toString().trim() || "Public user";
   const pin = formData.get("citizenPin")?.toString().trim() || mvpRegion.pin;
-  localStorage.setItem("rashtraCitizen", JSON.stringify({ name, pin }));
+  writeJson(userStorageKey, { name, pincode: pin });
+  loadCurrentUser();
   if (citizenAccountStatus) {
     citizenAccountStatus.textContent = `${name} logged in for pin ${pin}. Issues will stay anonymous for public view.`;
   }
@@ -786,6 +953,7 @@ renderAreaOptions();
 renderDistrictOptions();
 syncDropdownChain();
 renderCategoryOptions();
+loadCurrentUser();
 renderAssembly();
 renderTimeline();
 renderIssues();

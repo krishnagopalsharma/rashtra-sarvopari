@@ -2840,3 +2840,158 @@ html {
     flex-direction: column;
   }
 }
+
+/* ==========================================
+   REAL CITIZEN SESSION + INTERACTIVE ISSUES
+   ========================================== */
+
+.account-toggle {
+  min-height: 44px;
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  border-radius: 999px;
+  padding: 0 16px;
+  color: white;
+  background: rgba(10, 17, 40, 0.38);
+  box-shadow: 0 8px 32px rgba(0, 229, 255, 0.08);
+  cursor: pointer;
+  font-weight: 850;
+  backdrop-filter: blur(16px);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.account-toggle:hover,
+.account-toggle:focus-visible,
+.account-toggle.is-logged-in {
+  border-color: rgba(0, 229, 255, 0.68);
+  background: rgba(0, 229, 255, 0.12);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.priority-card {
+  width: 100%;
+  min-height: 190px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.priority-card small {
+  width: fit-content;
+  padding: 7px 10px;
+  border: 1px solid rgba(0, 229, 255, 0.26);
+  border-radius: 999px;
+  color: #00e5ff;
+  background: rgba(0, 229, 255, 0.08);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.priority-card:hover,
+.priority-card:focus-visible {
+  border-color: rgba(0, 229, 255, 0.7) !important;
+  outline: none;
+  transform: translateY(-3px);
+}
+
+.account-modal[hidden],
+.opinion-modal[hidden] {
+  display: none;
+}
+
+.account-modal,
+.opinion-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 4vw, 44px);
+  background: rgba(4, 10, 22, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.account-modal-panel,
+.opinion-panel {
+  position: relative;
+  width: min(520px, 96vw);
+  display: grid;
+  gap: 16px;
+  padding: clamp(22px, 4vw, 32px);
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  border-radius: 22px;
+  color: white;
+  background: rgba(10, 17, 40, 0.72);
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.52);
+}
+
+.account-modal-panel h2,
+.account-modal-panel p,
+.opinion-panel h3,
+.opinion-panel p {
+  margin: 0;
+}
+
+.account-modal-panel p,
+.opinion-panel p {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.opinion-panel textarea {
+  width: 100%;
+  min-height: 140px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 12px;
+  padding: 14px;
+  color: white;
+  background: rgba(255, 255, 255, 0.06);
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.opinion-panel textarea:focus {
+  border-color: rgba(0, 229, 255, 0.8);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.12);
+}
+
+.opinion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.live-issue-card-real small {
+  display: block;
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.58);
+  text-align: right;
+}
+
+.empty-state strong {
+  color: white;
+}
+
+@media (max-width: 980px) {
+  .account-toggle {
+    order: 4;
+  }
+}
