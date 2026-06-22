@@ -2,6 +2,7 @@
   "name": "rashtra-sarvopari",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "node -e \"console.log('Rashtra Sarvopari static build ready')\""
   },

@@ -1,15 +1,18 @@
-const crypto = require("node:crypto");
+import crypto from "node:crypto";
+import { getStore } from "@netlify/blobs";
 
-const json = (statusCode, body) => ({
-  statusCode,
-  headers: {
-    "content-type": "application/json; charset=utf-8",
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "POST, OPTIONS",
-    "access-control-allow-headers": "content-type, authorization",
-  },
-  body: JSON.stringify(body),
-});
+const responseHeaders = {
+  "content-type": "application/json; charset=utf-8",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-headers": "content-type, authorization",
+};
+
+const json = (status, body) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: responseHeaders,
+  });
 
 const normalizeUsername = (value = "") =>
   value
@@ -28,6 +31,7 @@ const base64url = (value) =>
 const secret = () =>
   process.env.RASHTRA_AUTH_SECRET ||
   process.env.NETLIFY_SITE_ID ||
+  process.env.SITE_ID ||
   "rashtra-sarvopari-local-development-secret";
 
 const hashPassword = (password, salt) =>
@@ -45,16 +49,20 @@ const signToken = (payload) => {
   return `${body}.${signature}`;
 };
 
-const authHandler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return json(204, {});
-  if (event.httpMethod !== "POST") return json(405, { ok: false, message: "Method not allowed" });
-
-  let payload;
+const parseBody = async (request) => {
   try {
-    payload = JSON.parse(event.body || "{}");
+    return await request.json();
   } catch {
-    return json(400, { ok: false, message: "Invalid request body" });
+    return null;
   }
+};
+
+const authHandler = async (request) => {
+  if (request.method === "OPTIONS") return json(204, {});
+  if (request.method !== "POST") return json(405, { ok: false, message: "Method not allowed" });
+
+  const payload = await parseBody(request);
+  if (!payload) return json(400, { ok: false, message: "Invalid request body" });
 
   const username = normalizeUsername(payload.username);
   const password = payload.password?.toString() || "";
@@ -67,7 +75,6 @@ const authHandler = async (event) => {
     return json(400, { ok: false, message: "Password minimum 6 characters ka hona chahiye." });
   }
 
-  const { getStore } = await import("@netlify/blobs");
   const users = getStore("rashtra-users");
   const key = `user:${username}`;
   const existingRaw = await users.get(key);
@@ -117,9 +124,9 @@ const authHandler = async (event) => {
   });
 };
 
-exports.handler = async (event) => {
+export default async (request) => {
   try {
-    return await authHandler(event);
+    return await authHandler(request);
   } catch (error) {
     console.error("Auth function failed", error);
     return json(500, {

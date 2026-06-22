@@ -1,19 +1,23 @@
-const crypto = require("node:crypto");
+import crypto from "node:crypto";
+import { getStore } from "@netlify/blobs";
 
-const json = (statusCode, body) => ({
-  statusCode,
-  headers: {
-    "content-type": "application/json; charset=utf-8",
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type, authorization",
-  },
-  body: JSON.stringify(body),
-});
+const responseHeaders = {
+  "content-type": "application/json; charset=utf-8",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "content-type, authorization",
+};
+
+const json = (status, body) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: responseHeaders,
+  });
 
 const secret = () =>
   process.env.RASHTRA_AUTH_SECRET ||
   process.env.NETLIFY_SITE_ID ||
+  process.env.SITE_ID ||
   "rashtra-sarvopari-local-development-secret";
 
 const verifyToken = (token = "") => {
@@ -50,21 +54,21 @@ const readIssues = async (store, key) => {
   }
 };
 
-const issuesHandler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return json(204, {});
+const issuesHandler = async (request) => {
+  if (request.method === "OPTIONS") return json(204, {});
 
-  const { getStore } = await import("@netlify/blobs");
   const store = getStore("rashtra-issues");
+  const requestUrl = new URL(request.url);
 
-  if (event.httpMethod === "GET") {
-    const area = event.queryStringParameters?.area || "Govardhan";
+  if (request.method === "GET") {
+    const area = requestUrl.searchParams.get("area") || "Govardhan";
     const issues = await readIssues(store, areaKey(area));
     return json(200, { ok: true, issues });
   }
 
-  if (event.httpMethod !== "POST") return json(405, { ok: false, message: "Method not allowed" });
+  if (request.method !== "POST") return json(405, { ok: false, message: "Method not allowed" });
 
-  const authHeader = event.headers.authorization || event.headers.Authorization || "";
+  const authHeader = request.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   const session = verifyToken(token);
 
@@ -74,7 +78,7 @@ const issuesHandler = async (event) => {
 
   let payload;
   try {
-    payload = JSON.parse(event.body || "{}");
+    payload = await request.json();
   } catch {
     return json(400, { ok: false, message: "Invalid request body" });
   }
@@ -107,9 +111,9 @@ const issuesHandler = async (event) => {
   return json(201, { ok: true, issue });
 };
 
-exports.handler = async (event) => {
+export default async (request) => {
   try {
-    return await issuesHandler(event);
+    return await issuesHandler(request);
   } catch (error) {
     console.error("Issues function failed", error);
     return json(500, {
