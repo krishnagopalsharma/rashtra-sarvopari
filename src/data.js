@@ -93,6 +93,32 @@ export const siteData = {
     { name: "Baldeo", pin: "281301", type: "SC reserved assembly area" },
   ],
   mathuraTehsils: ["Govardhan", "Vrindavan", "Mant", "Chhata", "Baldeo"],
+  govardhanTopIssues: [
+    {
+      key: "parikrama-traffic",
+      title: "Traffic Mismanagement during Parikrama & Festivals",
+      description:
+        "Crowd movement, temporary diversions, parking pressure, and festival-route control around Govardhan Parikrama.",
+    },
+    {
+      key: "parikrama-cleanliness",
+      title: "Cleanliness & Solid Waste Disposal near Parikrama Marg",
+      description:
+        "Waste collection, dustbins, sweep cycles, and sanitation pressure on the Parikrama route and nearby markets.",
+    },
+    {
+      key: "stray-animals",
+      title: "Stray Animal Menace (Monkeys & Cattle Management)",
+      description:
+        "Monkey incidents, stray cattle movement, public safety, and visitor management around local heritage spots.",
+    },
+    {
+      key: "water-sewer",
+      title: "Clean Drinking Water & Sewer Infrastructure",
+      description:
+        "Drinking water quality, drain overflow, sewer maintenance, and ward-level infrastructure follow-up.",
+    },
+  ],
   stateLeadership: {
     title: "Uttar Pradesh Executive Leadership",
     summary: "State-level policy, departments, and district administration follow-up node for civic delivery.",
@@ -319,8 +345,8 @@ export const siteData = {
       issuesKicker: "Public voice",
       issuesTitle: "Area issues grid",
       issuesText:
-        "People can vote on local issues first. Login, photo upload, and admin verification will come in the next version.",
-      prototypeForm: "Prototype form",
+        "Citizens can vote on Govardhan's critical issues and submit real local opinions with photo proof.",
+      prototypeForm: "Live report terminal",
       submitIssueTitle: "Submit a local issue",
       category: "Category",
       reportArea: "Area",
@@ -336,8 +362,8 @@ export const siteData = {
       copyrightText:
         "© 2026 Rashtra Sarvopari. Designed & Developed by Krishna Gopal Sharma. All Rights Reserved.",
       mediaUpdate: "Media update",
-      comingSoonTitle: "Gallery & Map coming soon for",
-      comingSoonText: "Area-specific satellite maps and verified photos will appear here once they are added.",
+      comingSoonTitle: "Area media unavailable for",
+      comingSoonText: "This area is queued for verified civic media.",
       satelliteAttribution: "Satellite Image by Google Earth | Image Date:",
       filterNotePrefix: "Showing issues for",
       filterNoteMiddle: "pin code",
@@ -352,7 +378,7 @@ export const siteData = {
       invalidPinPrefix: "Use pin code",
       invalidPinMiddle: "for",
       reportedIssues: "Reported issues",
-      reportedIssuesText: "Prototype sample count for selected districts.",
+      reportedIssuesText: "Live Govardhan civic reports received.",
       verified: "Verified",
       verifiedText: "Issues with area, category, and photo proof.",
       resolved: "Resolved",
@@ -369,7 +395,7 @@ export const siteData = {
       resolvedStatus: "Resolved",
       resolvedStatusText: "Closed after proof or admin review.",
       publicRating: "Public rating",
-      publicRatingText: "Demo rating layer for representatives.",
+      publicRatingText: "Citizen trust score from submitted feedback.",
       memberOfParliament: "Member of Parliament",
       mpPointOne: "Third consecutive term.",
       mpPointTwo: "Won in 2014, 2019, and 2024.",
@@ -437,8 +463,8 @@ export const siteData = {
       issuesKicker: "जन आवाज",
       issuesTitle: "क्षेत्र समस्या ग्रिड",
       issuesText:
-        "लोग पहले स्थानीय समस्याओं पर वोट कर सकते हैं। लॉगिन, फोटो अपलोड और एडमिन सत्यापन अगले संस्करण में आएंगे।",
-      prototypeForm: "प्रोटोटाइप फॉर्म",
+        "नागरिक गोवर्धन की मुख्य समस्याओं पर वोट कर सकते हैं और फोटो प्रमाण के साथ असली राय भेज सकते हैं।",
+      prototypeForm: "लाइव रिपोर्ट टर्मिनल",
       submitIssueTitle: "स्थानीय समस्या जमा करें",
       category: "श्रेणी",
       reportArea: "क्षेत्र",
@@ -454,8 +480,8 @@ export const siteData = {
       copyrightText:
         "© 2026 Rashtra Sarvopari. कृष्ण गोपाल शर्मा द्वारा डिजाइन और विकसित। सर्वाधिकार सुरक्षित।",
       mediaUpdate: "मीडिया अपडेट",
-      comingSoonTitle: "गैलरी और मैप जल्द आएंगे:",
-      comingSoonText: "क्षेत्र-विशेष सैटेलाइट मैप और सत्यापित फोटो जोड़े जाने के बाद यहां दिखेंगे।",
+      comingSoonTitle: "इस क्षेत्र का मीडिया अभी उपलब्ध नहीं:",
+      comingSoonText: "यह क्षेत्र सत्यापित नागरिक मीडिया के लिए कतार में है।",
       satelliteAttribution: "Google Earth द्वारा सैटेलाइट इमेज | इमेज दिनांक:",
       filterNotePrefix: "दिखाई जा रही समस्याएं",
       filterNoteMiddle: "पिन कोड",
@@ -470,7 +496,7 @@ export const siteData = {
       invalidPinPrefix: "कृपया पिन कोड",
       invalidPinMiddle: "का उपयोग करें:",
       reportedIssues: "रिपोर्ट की गई समस्याएं",
-      reportedIssuesText: "चुने हुए जिलों के लिए प्रोटोटाइप सैंपल संख्या।",
+      reportedIssuesText: "गोवर्धन की लाइव नागरिक रिपोर्टें।",
       verified: "सत्यापित",
       verifiedText: "क्षेत्र, श्रेणी और फोटो प्रमाण वाली समस्याएं।",
       resolved: "समाधान",
@@ -487,7 +513,7 @@ export const siteData = {
       resolvedStatus: "समाधान हुआ",
       resolvedStatusText: "प्रमाण या एडमिन समीक्षा के बाद बंद।",
       publicRating: "जन रेटिंग",
-      publicRatingText: "जनप्रतिनिधियों के लिए डेमो रेटिंग लेयर।",
+      publicRatingText: "नागरिक प्रतिक्रिया से बना भरोसा स्कोर।",
       memberOfParliament: "सांसद",
       mpPointOne: "लगातार तीसरा कार्यकाल।",
       mpPointTwo: "2014, 2019 और 2024 में जीत।",

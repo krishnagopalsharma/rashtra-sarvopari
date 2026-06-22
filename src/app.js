@@ -36,14 +36,25 @@ const lightboxTitle = document.querySelector("#lightboxTitle");
 const lightboxDescription = document.querySelector("#lightboxDescription");
 const lightboxClose = document.querySelector("#lightboxClose");
 const accountButton = document.querySelector("#accountButton");
+const accountShell = document.querySelector(".account-shell");
+const profileMenu = document.querySelector("#profileMenu");
+const profileUsername = document.querySelector("#profileUsername");
+const profileAvatar = document.querySelector("#profileAvatar");
+const profileVotes = document.querySelector("#profileVotes");
+const profileOpinions = document.querySelector("#profileOpinions");
+const avatarInput = document.querySelector("#avatarInput");
+const profileLogout = document.querySelector("#profileLogout");
 const accountModal = document.querySelector("#accountModal");
 const accountModalClose = document.querySelector("#accountModalClose");
 const quickAccountForm = document.querySelector("#quickAccountForm");
+const slideReportForm = document.querySelector("#slideReportForm");
+const slideReportStatus = document.querySelector("#slideReportStatus");
 
 let currentLanguage = "en";
 let showDashboard = false;
 let verifiedNetaUnlocked = localStorage.getItem("rashtraVerifiedNeta") === "true";
 let currentUser = null;
+let latestVoteData = [];
 
 const t = (key) => siteData.language[currentLanguage]?.[key] || siteData.language.en[key] || key;
 const translateStatus = (status) => siteData.language[currentLanguage]?.status?.[status] || status;
@@ -52,6 +63,7 @@ const mvpRegion = siteData.defaultArea;
 const userStorageKey = "rashtra_user";
 const authTokenKey = "rashtra_auth_token";
 let authToken = localStorage.getItem(authTokenKey) || "";
+const usernamePattern = /^[a-z0-9._]+$/;
 
 const readJson = (key, fallback) => {
   try {
@@ -90,11 +102,12 @@ const apiRequest = async (path, options = {}) => {
 const updateAccountButton = () => {
   accountButton?.classList.toggle("is-logged-in", Boolean(currentUser));
   if (!accountButton) return;
-  accountButton.textContent = currentUser ? `${currentUser.username} | Logout` : "Login / Create Account";
+  accountButton.textContent = currentUser ? `@${currentUser.username}` : "Login / Create Account";
   accountButton.setAttribute(
     "aria-label",
-    currentUser ? "Logout current account" : "Login or create citizen account",
+    currentUser ? "Open citizen profile" : "Login or create citizen account",
   );
+  renderProfileMenu();
 };
 
 const loadCurrentUser = () => {
@@ -121,6 +134,7 @@ const logoutUser = () => {
   localStorage.removeItem(authTokenKey);
   localStorage.removeItem(userStorageKey);
   updateAccountButton();
+  if (profileMenu) profileMenu.hidden = true;
 };
 
 const authenticateUser = ({ username, password }) =>
@@ -128,6 +142,40 @@ const authenticateUser = ({ username, password }) =>
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
+
+const updateAvatar = (avatar) =>
+  apiRequest("/.netlify/functions/auth", {
+    method: "POST",
+    body: JSON.stringify({ action: "updateAvatar", avatar }),
+  });
+
+const renderProfileMenu = () => {
+  if (!profileMenu || !profileUsername || !profileAvatar) return;
+  if (!currentUser) {
+    profileMenu.hidden = true;
+    return;
+  }
+  profileUsername.textContent = `@${currentUser.username}`;
+  profileVotes.textContent = currentUser.totalVotes || 0;
+  profileOpinions.textContent = currentUser.totalOpinions || 0;
+  if (currentUser.avatar) {
+    profileAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="${currentUser.username} avatar" />`;
+  } else {
+    profileAvatar.textContent = currentUser.username.slice(0, 2).toUpperCase();
+  }
+};
+
+const validateUsernameValue = (username) => {
+  const clean = username.toLowerCase().trim();
+  if (!usernamePattern.test(clean)) {
+    return {
+      ok: false,
+      username: clean,
+      message: "Username me sirf lowercase letters, numbers, underscore (_) aur period (.) allowed hain.",
+    };
+  }
+  return { ok: true, username: clean };
+};
 
 const loadCitizenIssues = async (area) => {
   const params = new URLSearchParams({ area });
@@ -154,6 +202,31 @@ const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+
+const readImageAsDataUrl = (file, maxBytes = 1600000) =>
+  new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Only image files are allowed."));
+      return;
+    }
+    if (file.size > maxBytes) {
+      reject(new Error("Image too large. Please upload a smaller photo."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      resolve({
+        name: file.name,
+        type: file.type,
+        dataUrl: reader.result,
+      });
+    reader.onerror = () => reject(new Error("Photo read failed."));
+    reader.readAsDataURL(file);
+  });
 
 const introStorageKey = "rashtraSarvopariIntroSeenV6";
 let introMessageTimer;
@@ -320,12 +393,16 @@ const syncDropdownChain = ({ preserveArea = false } = {}) => {
 };
 
 const renderCategoryOptions = () => {
-  if (!categoryInput) return;
-  const selectedValue = categoryInput.value;
-  categoryInput.innerHTML = siteData.issueCategories
+  const selects = [categoryInput, slideReportForm?.querySelector('[name="category"]')].filter(Boolean);
+  if (!selects.length) return;
+  const options = siteData.issueCategories
     .map((category) => `<option value="${category}">${translateCategory(category)}</option>`)
     .join("");
-  if (selectedValue) categoryInput.value = selectedValue;
+  selects.forEach((select) => {
+    const selectedValue = select.value;
+    select.innerHTML = options;
+    if (selectedValue) select.value = selectedValue;
+  });
 };
 
 const renderAssembly = () => {
@@ -362,6 +439,10 @@ const renderAssembly = () => {
           <button type="button" class="affidavit-tab" data-tab="contact">Public Contact</button>
         </div>
         <div class="affidavit-panel" id="affidavitPanel">${affidavit.summary}</div>
+        <div class="mla-official-links">
+          <a class="mla-link mla-link-green" href="https://mlaladsup.in/" target="_blank" rel="noopener noreferrer">MLA Work Record (Govt. Web)</a>
+          <a class="mla-link mla-link-orange" href="https://www.myneta.info/uttarpradesh2022/candidate.php?candidate_id=68" target="_blank" rel="noopener noreferrer">Check Official Affidavit (Govt. Verified)</a>
+        </div>
       </article>
     </div>
   `;
@@ -382,25 +463,36 @@ const renderTimeline = () => {
 };
 
 const renderIssues = () => {
-  issueGrid.innerHTML = siteData.issueCategories
+  const topIssues = siteData.govardhanTopIssues || [];
+  issueGrid.innerHTML = topIssues
     .map(
       (issue) => `
-        <button class="issue-card priority-card reveal" type="button" data-category="${issue}" aria-label="Write issue for ${translateCategory(issue)}">
-          <span>${t("publicPriority")}</span>
-          <strong>${translateCategory(issue)}</strong>
-          <p>Click to write your real opinion or local issue for this category.</p>
-          <small>Write raye</small>
-        </button>
+        <article class="issue-card priority-card reveal" data-issue-key="${issue.key}" data-category="${issue.title}">
+          <span>Govardhan critical issue</span>
+          <strong>${issue.title}</strong>
+          <p>${issue.description}</p>
+          <div class="vote-row">
+            <button class="vote-action" type="button" data-vote-key="${issue.key}" data-title="${issue.title}">Vote for this Issue</button>
+            <b id="vote-count-${issue.key}">0 votes</b>
+          </div>
+          <div class="voter-feed" id="voter-feed-${issue.key}">No citizen votes yet.</div>
+        </article>
       `,
     )
     .join("");
+  renderVotes();
 };
 
 const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, selectedPin = siteData.defaultArea.pin) => {
   let filteredIssues = [];
 
   try {
-    filteredIssues = await loadCitizenIssues(selectedArea);
+    const result = await apiRequest(`/.netlify/functions/issues?${new URLSearchParams({ area: selectedArea }).toString()}`, {
+      method: "GET",
+    });
+    filteredIssues = result.issues || [];
+    latestVoteData = result.votes || [];
+    renderVotes();
   } catch (error) {
     statusBoard.innerHTML = `
       <article class="status-item empty-state reveal">
@@ -430,11 +522,44 @@ const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, sele
           <span>${translateCategory(issue.category)} | ${escapeHtml(issue.area)} | ${escapeHtml(issue.pincode)}</span>
           <strong><i class="status-dot pending"></i>Live Citizen Feed</strong>
           <p>"${escapeHtml(issue.text)}"</p>
+          ${
+            issue.photo?.dataUrl
+              ? `<img class="issue-proof" src="${issue.photo.dataUrl}" alt="Photo proof uploaded by ${escapeHtml(issue.username || "citizen")}" />`
+              : ""
+          }
           <small>Reported by: <b>${escapeHtml(issue.username || issue.name || "Citizen")}</b></small>
         </article>
       `,
     )
     .join("");
+};
+
+const renderVotes = () => {
+  (siteData.govardhanTopIssues || []).forEach((issue) => {
+    const vote = latestVoteData.find((item) => item.issueKey === issue.key);
+    const countNode = document.querySelector(`#vote-count-${issue.key}`);
+    const feedNode = document.querySelector(`#voter-feed-${issue.key}`);
+    if (countNode) countNode.textContent = `${vote?.count || 0} votes`;
+    if (feedNode) {
+      const voters = (vote?.voters || []).slice(0, 4);
+      feedNode.innerHTML = voters.length
+        ? voters
+            .map(
+              (voter) => `
+                <span class="voter-chip">
+                  ${
+                    voter.avatar
+                      ? `<img src="${voter.avatar}" alt="${escapeHtml(voter.username)} avatar" />`
+                      : `<i>${escapeHtml(voter.username.slice(0, 1).toUpperCase())}</i>`
+                  }
+                  Voted by: ${escapeHtml(voter.username)}
+                </span>
+              `,
+            )
+            .join("")
+        : "No citizen votes yet.";
+    }
+  });
 };
 
 const openAccountModal = () => {
@@ -450,19 +575,37 @@ const closeAccountModal = () => {
   document.body.classList.remove("no-scroll");
 };
 
-const publishCitizenIssue = async ({ category, text }) => {
+const publishCitizenIssue = async ({ category, text, photo = null }) => {
   const context = selectedIssueContext();
-  await apiRequest("/.netlify/functions/issues", {
+  const result = await apiRequest("/.netlify/functions/issues", {
     method: "POST",
     body: JSON.stringify({
       category,
       text: text.trim(),
       pincode: context.pin,
       area: context.area,
+      photo,
     }),
   });
+  if (result.user) persistSession({ token: authToken, user: result.user });
   await renderStatusBoard(context.area, context.pin);
   setupReveal();
+};
+
+const voteForIssue = async ({ issueKey, title }) => {
+  const context = selectedIssueContext();
+  const result = await apiRequest("/.netlify/functions/issues", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "vote",
+      issueKey,
+      title,
+      area: context.area,
+    }),
+  });
+  latestVoteData = result.votes || latestVoteData;
+  if (result.user) persistSession({ token: authToken, user: result.user });
+  renderVotes();
 };
 
 const openOpinionBox = (category, user) => {
@@ -562,9 +705,10 @@ const renderAreaMedia = (areaName) => {
           <p>Used as primary issue filter.</p>
         </article>
         <article class="map-tile map-metric">
-          <span>Map clarity</span>
-          <strong>Clean civic layer</strong>
-          <p>Labels are visually softened so the local boundary stays primary.</p>
+          <img class="govardhan-photo-tile" src="assets/kusum-sarovar-preview.png" alt="Kusum Sarovar Govardhan" />
+          <span>Govardhan ground reference</span>
+          <strong>Kusum Sarovar node</strong>
+          <p>Photo reference for local civic reports around the Govardhan area.</p>
         </article>
       </div>
     `;
@@ -572,7 +716,7 @@ const renderAreaMedia = (areaName) => {
     areaMapCard.innerHTML = comingSoon;
   }
 
-  if (media?.gallery?.length) {
+  if (areaGallery && media?.gallery?.length) {
     areaGallery.innerHTML = media.gallery
       .map(
         (item) => `
@@ -584,7 +728,7 @@ const renderAreaMedia = (areaName) => {
       )
       .join("");
   } else {
-    areaGallery.innerHTML = comingSoon;
+    if (areaGallery) areaGallery.innerHTML = comingSoon;
   }
 };
 
@@ -712,12 +856,38 @@ languageToggle.addEventListener("click", () => {
 });
 
 accountButton?.addEventListener("click", () => {
-  if (currentUser) {
-    logoutUser();
-    if (citizenAccountStatus) citizenAccountStatus.textContent = "Logged out. Same username/password se dobara login ho jayega.";
+  if (currentUser && profileMenu) {
+    profileMenu.hidden = !profileMenu.hidden;
+    renderProfileMenu();
     return;
   }
   openAccountModal();
+});
+profileLogout?.addEventListener("click", () => logoutUser());
+document.addEventListener("click", (event) => {
+  if (!profileMenu || profileMenu.hidden) return;
+  if (accountShell?.contains(event.target)) return;
+  profileMenu.hidden = true;
+});
+
+document.querySelectorAll("input[name='quickUsername']").forEach((input) => {
+  input.addEventListener("input", () => {
+    input.value = input.value.toLowerCase().replace(/[^a-z0-9._]/g, "");
+  });
+});
+
+avatarInput?.addEventListener("change", async () => {
+  const file = avatarInput.files?.[0];
+  if (!file || !currentUser) return;
+  try {
+    const photo = await readImageAsDataUrl(file, 600000);
+    const result = await updateAvatar(photo.dataUrl);
+    persistSession({ token: authToken, user: result.user });
+  } catch (error) {
+    window.alert(error.message || "Avatar update failed.");
+  } finally {
+    avatarInput.value = "";
+  }
 });
 accountModalClose?.addEventListener("click", closeAccountModal);
 accountModal?.addEventListener("click", (event) => {
@@ -727,10 +897,15 @@ accountModal?.addEventListener("click", (event) => {
 quickAccountForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(quickAccountForm);
-  const username = formData.get("quickUsername")?.toString().trim();
+  const usernameCheck = validateUsernameValue(formData.get("quickUsername")?.toString() || "");
   const password = formData.get("quickPassword")?.toString();
   const authMessage = document.querySelector("#authMessage");
   const button = quickAccountForm.querySelector("button[type='submit']");
+  if (!usernameCheck.ok) {
+    if (authMessage) authMessage.textContent = usernameCheck.message;
+    return;
+  }
+  const username = usernameCheck.username;
   if (!username || !password) return;
   if (authMessage) authMessage.textContent = "Connecting to Netlify secure account...";
   button.disabled = true;
@@ -747,14 +922,28 @@ quickAccountForm?.addEventListener("submit", async (event) => {
 });
 
 issueGrid.addEventListener("click", (event) => {
-  const card = event.target.closest(".priority-card");
-  if (!card) return;
+  const voteButton = event.target.closest("[data-vote-key]");
   const user = loadCurrentUser();
   if (!user) {
     openAccountModal();
     return;
   }
-  openOpinionBox(card.dataset.category || "Local Issue", user);
+  if (voteButton) {
+    voteButton.disabled = true;
+    voteButton.textContent = "Voting...";
+    voteForIssue({
+      issueKey: voteButton.dataset.voteKey,
+      title: voteButton.dataset.title,
+    })
+      .catch((error) => window.alert(error.message || "Vote submit nahi ho paya."))
+      .finally(() => {
+        voteButton.disabled = false;
+        voteButton.textContent = "Vote for this Issue";
+      });
+    return;
+  }
+  const card = event.target.closest(".priority-card");
+  if (card) openOpinionBox(card.dataset.category || "Local Issue", user);
 });
 
 const syncArea = (areaName) => {
@@ -898,6 +1087,7 @@ if (feedbackForm) {
     const descriptionInput = feedbackForm.querySelector('[name="description"]');
     const category = categoryInput?.value || siteData.issueCategories[0];
     const description = descriptionInput?.value.trim() || "No detailed summary provided.";
+    const photoFile = feedbackForm.querySelector('[name="photoProof"]')?.files?.[0];
     const user = loadCurrentUser();
 
     if (!user) {
@@ -908,7 +1098,8 @@ if (feedbackForm) {
     button.disabled = true;
     button.textContent = "Publishing...";
     try {
-      await publishCitizenIssue({ category, text: description, user });
+      const photo = await readImageAsDataUrl(photoFile);
+      await publishCitizenIssue({ category, text: description, user, photo });
       button.textContent = "Submitted to Netlify";
     } catch (error) {
       button.textContent = error.message || "Submit failed";
@@ -921,6 +1112,40 @@ if (feedbackForm) {
     }, 1800);
   });
 }
+
+slideReportForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const user = loadCurrentUser();
+  if (!user) {
+    openAccountModal();
+    return;
+  }
+
+  const button = slideReportForm.querySelector("button[type='submit']");
+  const original = button.textContent;
+  const formData = new FormData(slideReportForm);
+  const category = formData.get("category")?.toString() || "Local Issue";
+  const description = formData.get("description")?.toString().trim() || "";
+  const photoFile = slideReportForm.querySelector('[name="photoProof"]')?.files?.[0];
+
+  if (!description) return;
+  button.disabled = true;
+  button.textContent = "Publishing...";
+  if (slideReportStatus) slideReportStatus.textContent = "Uploading issue to Netlify...";
+
+  try {
+    const photo = await readImageAsDataUrl(photoFile);
+    await publishCitizenIssue({ category, text: description, photo });
+    slideReportForm.reset();
+    renderCategoryOptions();
+    if (slideReportStatus) slideReportStatus.textContent = "Issue published into live citizen feed.";
+  } catch (error) {
+    if (slideReportStatus) slideReportStatus.textContent = error.message || "Issue submit failed.";
+  } finally {
+    button.textContent = original;
+    button.disabled = false;
+  }
+});
 
 const openLightbox = (card) => {
   if (!galleryLightbox || !lightboxImage || !lightboxTitle || !lightboxDescription) return;
@@ -939,12 +1164,12 @@ const closeLightbox = () => {
   document.body.classList.remove("no-scroll");
 };
 
-areaGallery.addEventListener("click", (event) => {
+areaGallery?.addEventListener("click", (event) => {
   const card = event.target.closest(".gallery-card");
   if (card) openLightbox(card);
 });
 
-areaGallery.addEventListener("keydown", (event) => {
+areaGallery?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   const card = event.target.closest(".gallery-card");
   if (!card) return;
@@ -1019,7 +1244,7 @@ netaAccountForm?.addEventListener("submit", (event) => {
 const setupReveal = () => {
   document
     .querySelectorAll(
-      ".section-heading, .stat-card, .profile-card, .assembly-card, .timeline-item, .issue-card, .feedback-panel, .builder-grid article, .satellite-card, .heritage-strip, .gallery-card, .coming-soon-card, .report-card-strip article, .status-item",
+      ".section-heading, .stat-card, .profile-card, .assembly-card, .timeline-item, .issue-card, .feedback-panel, .report-terminal, .builder-grid article, .satellite-card, .heritage-strip, .gallery-card, .coming-soon-card, .report-card-strip article, .status-item",
     )
     .forEach((node) => node.classList.add("reveal"));
 

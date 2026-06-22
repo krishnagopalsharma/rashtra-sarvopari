@@ -48,7 +48,27 @@
         <a href="#contacts" data-i18n="navRepresentatives">Representatives</a>
       </nav>
 
-      <button class="account-toggle" id="accountButton" type="button">Signup / Create Account</button>
+      <div class="account-shell">
+        <button class="account-toggle" id="accountButton" type="button">Login / Create Account</button>
+        <div class="profile-menu" id="profileMenu" hidden>
+          <div class="profile-menu-head">
+            <div class="profile-avatar" id="profileAvatar">RS</div>
+            <div>
+              <strong id="profileUsername">guest</strong>
+              <span>Citizen profile</span>
+            </div>
+          </div>
+          <label class="avatar-upload">
+            <span>Upload avatar</span>
+            <input id="avatarInput" type="file" accept="image/*" />
+          </label>
+          <div class="profile-stats">
+            <span><b id="profileVotes">0</b> votes cast</span>
+            <span><b id="profileOpinions">0</b> opinions posted</span>
+          </div>
+          <button class="ghost-action profile-logout" id="profileLogout" type="button">Logout</button>
+        </div>
+      </div>
 
       <button class="language-toggle" id="languageToggle" type="button">
         हिंदी
@@ -136,17 +156,30 @@
         <div class="satellite-card" id="areaMapCard"></div>
       </section>
 
-      <section class="heritage-strip" aria-labelledby="heritageTitle" data-dashboard-section hidden>
+      <section class="heritage-strip report-hub" aria-labelledby="heritageTitle" data-dashboard-section hidden>
         <div class="gallery-intro">
-          <span class="section-kicker" data-i18n="heritageKicker">Local heritage</span>
-          <h2 id="heritageTitle">Govardhan photo gallery</h2>
-          <p data-i18n="heritageText">
-            Famous places and local visuals stay separate from the satellite
-            issue map, so users can explore the area without confusing photos
-            with live civic reports.
+          <span class="section-kicker">Citizen terminal</span>
+          <h2 id="heritageTitle">Report Local Issue & Upload Photo</h2>
+          <p>
+            Write a clear local issue, attach photo proof, and publish it into the live citizen feed for Govardhan.
           </p>
         </div>
-        <div class="gallery-grid" id="areaGallery" aria-label="Area photo gallery"></div>
+        <form class="report-terminal" id="slideReportForm">
+          <label>
+            <span>Issue category</span>
+            <select name="category"></select>
+          </label>
+          <label>
+            <span>Your opinion / issue details</span>
+            <textarea name="description" rows="7" placeholder="Write the local issue clearly with place, landmark, and urgency..." required></textarea>
+          </label>
+          <label class="proof-drop">
+            <span>Upload photographic proof</span>
+            <input name="photoProof" type="file" accept="image/*" />
+          </label>
+          <button type="submit" class="primary-action">Submit issue to live feed</button>
+          <small id="slideReportStatus" class="account-status" aria-live="polite"></small>
+        </form>
       </section>
 
       <section class="dashboard" id="dashboard" aria-labelledby="dashboardTitle" data-dashboard-section hidden>
@@ -163,22 +196,22 @@
           <article class="stat-card">
             <span data-i18n="reportedIssues">Reported issues</span>
             <strong>128</strong>
-            <p data-i18n="reportedIssuesText">Prototype sample count for selected districts.</p>
+            <p>Live Govardhan civic reports received.</p>
           </article>
           <article class="stat-card">
             <span data-i18n="verified">Verified</span>
             <strong>74</strong>
-            <p data-i18n="verifiedText">Issues with area, category, and photo proof.</p>
+            <p>Reports with area, category, and evidence.</p>
           </article>
           <article class="stat-card">
             <span data-i18n="resolved">Resolved</span>
             <strong>31</strong>
-            <p data-i18n="resolvedText">Closed after public or admin verification.</p>
+            <p>Resolved after public or admin verification.</p>
           </article>
           <article class="stat-card">
             <span data-i18n="topIssue">Top issue</span>
             <strong>Road</strong>
-            <p data-i18n="topIssueText">Road repair and street light reports are trending.</p>
+            <p>Most repeated local infrastructure concern.</p>
           </article>
         </div>
 
@@ -201,7 +234,7 @@
           <article>
             <span data-i18n="publicRating">Public rating</span>
             <strong>4.0 / 5</strong>
-            <p data-i18n="publicRatingText">Demo rating layer for representatives.</p>
+            <p data-i18n="publicRatingText">Citizen trust score from submitted feedback.</p>
           </article>
         </div>
 
@@ -244,52 +277,6 @@
         </div>
 
         <div class="issue-grid" id="issueGrid"></div>
-
-        <div class="account-architecture" id="accountArchitecture" aria-label="Simple account access">
-          <article class="account-card citizen-account">
-            <span class="section-kicker">Aam Janta Account</span>
-            <h3>Instant public access</h3>
-            <p>Username aur password se account create/login hoga. Logout ke baad same details se wapas login ho jayega.</p>
-            <form id="citizenAccountForm" class="account-form">
-              <label>
-                <span>Username</span>
-                <input name="citizenUsername" type="text" placeholder="Choose username" autocomplete="username" required />
-              </label>
-              <label>
-                <span>Password</span>
-                <input name="citizenPassword" type="password" placeholder="Create password" autocomplete="current-password" required />
-              </label>
-              <button type="submit" class="ghost-action">Login / Create account</button>
-            </form>
-            <small id="citizenAccountStatus" class="account-status" aria-live="polite"></small>
-          </article>
-
-          <article class="account-card neta-account">
-            <span class="section-kicker">Verified Neta Account</span>
-            <h3>Representative verification</h3>
-            <p>Name, pin code, Aadhar proof aur designation letter se badge request hoti hai.</p>
-            <form id="netaAccountForm" class="account-form">
-              <label>
-                <span>Name</span>
-                <input name="netaName" type="text" placeholder="Representative name" required />
-              </label>
-              <label>
-                <span>Pin code</span>
-                <input name="netaPin" type="text" inputmode="numeric" placeholder="281502" required />
-              </label>
-              <label>
-                <span>Aadhar ID proof</span>
-                <input name="aadharProof" type="file" required />
-              </label>
-              <label>
-                <span>Designation letter</span>
-                <input name="designationProof" type="file" required />
-              </label>
-              <button type="submit" class="ghost-action">Request verification</button>
-            </form>
-            <small id="netaAccountStatus" class="account-status" aria-live="polite"></small>
-          </article>
-        </div>
 
         <p class="filter-note" id="filterNote">
           Showing issues for Govardhan pin code 281502 only.
@@ -375,7 +362,7 @@
         <form id="quickAccountForm" class="account-form">
           <label>
             <span>Username</span>
-            <input name="quickUsername" type="text" placeholder="Choose username" autocomplete="username" required />
+            <input name="quickUsername" type="text" placeholder="choose.username" autocomplete="username" pattern="[a-z0-9._]+" title="Use lowercase letters, numbers, underscores, and periods only." required />
           </label>
           <label>
             <span>Password</span>

@@ -49,6 +49,29 @@ const signToken = (payload) => {
   return `${body}.${signature}`;
 };
 
+const verifyToken = (token = "") => {
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+  const expected = crypto.createHmac("sha256", secret()).update(body).digest("base64url");
+  const left = Buffer.from(signature);
+  const right = Buffer.from(expected);
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) return null;
+  try {
+    return JSON.parse(Buffer.from(body.replaceAll("-", "+").replaceAll("_", "/"), "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+};
+
+const publicUser = (user) => ({
+  username: user.username,
+  avatar: user.avatar || "",
+  totalVotes: user.totalVotes || 0,
+  totalOpinions: user.totalOpinions || 0,
+  createdAt: user.createdAt,
+  lastLoginAt: user.lastLoginAt,
+});
+
 const parseBody = async (request) => {
   try {
     return await request.json();
@@ -64,6 +87,31 @@ const authHandler = async (request) => {
   const payload = await parseBody(request);
   if (!payload) return json(400, { ok: false, message: "Invalid request body" });
 
+  const users = getStore("rashtra-users");
+
+  if (payload.action === "updateAvatar") {
+    const authHeader = request.headers.get("authorization") || "";
+    const session = verifyToken(authHeader.replace(/^Bearer\s+/i, ""));
+    if (!session?.username) return json(401, { ok: false, message: "Login required." });
+
+    const key = `user:${session.username}`;
+    const existingRaw = await users.get(key);
+    const existingUser = existingRaw ? JSON.parse(existingRaw) : null;
+    if (!existingUser) return json(404, { ok: false, message: "Account not found." });
+
+    const avatar = payload.avatar?.toString() || "";
+    if (avatar && !avatar.startsWith("data:image/")) {
+      return json(400, { ok: false, message: "Only image avatars are allowed." });
+    }
+    if (avatar.length > 650000) {
+      return json(400, { ok: false, message: "Avatar image is too large. Please choose a smaller photo." });
+    }
+
+    const updated = { ...existingUser, avatar, updatedAt: new Date().toISOString() };
+    await users.set(key, JSON.stringify(updated));
+    return json(200, { ok: true, user: publicUser(updated) });
+  }
+
   const username = normalizeUsername(payload.username);
   const password = payload.password?.toString() || "";
 
@@ -75,7 +123,6 @@ const authHandler = async (request) => {
     return json(400, { ok: false, message: "Password minimum 6 characters ka hona chahiye." });
   }
 
-  const users = getStore("rashtra-users");
   const key = `user:${username}`;
   const existingRaw = await users.get(key);
   const existingUser = existingRaw ? JSON.parse(existingRaw) : null;
@@ -84,19 +131,15 @@ const authHandler = async (request) => {
   if (existingUser) {
     const inputHash = hashPassword(password, existingUser.salt);
     if (!safeEqual(inputHash, existingUser.passwordHash)) {
-      return json(401, { ok: false, message: "Password galat hai. Dobara try karo." });
+      return json(409, { ok: false, message: "This username is already taken. Please choose another one!" });
     }
 
-    const user = {
-      username: existingUser.username,
-      createdAt: existingUser.createdAt,
-      lastLoginAt: now,
-    };
-    await users.set(key, JSON.stringify({ ...existingUser, lastLoginAt: now }));
+    const updated = { ...existingUser, lastLoginAt: now };
+    await users.set(key, JSON.stringify(updated));
     return json(200, {
       ok: true,
       mode: "login",
-      user,
+      user: publicUser(updated),
       token: signToken({ username, issuedAt: Date.now() }),
     });
   }
@@ -106,6 +149,9 @@ const authHandler = async (request) => {
     username,
     salt,
     passwordHash: hashPassword(password, salt),
+    avatar: "",
+    totalVotes: 0,
+    totalOpinions: 0,
     createdAt: now,
     lastLoginAt: now,
   };
@@ -115,11 +161,7 @@ const authHandler = async (request) => {
   return json(201, {
     ok: true,
     mode: "created",
-    user: {
-      username,
-      createdAt: now,
-      lastLoginAt: now,
-    },
+    user: publicUser(newUser),
     token: signToken({ username, issuedAt: Date.now() }),
   });
 };

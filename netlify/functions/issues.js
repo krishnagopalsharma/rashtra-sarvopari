@@ -54,16 +54,34 @@ const readIssues = async (store, key) => {
   }
 };
 
+const publicUser = (user) => ({
+  username: user.username,
+  avatar: user.avatar || "",
+  totalVotes: user.totalVotes || 0,
+  totalOpinions: user.totalOpinions || 0,
+  createdAt: user.createdAt,
+  lastLoginAt: user.lastLoginAt,
+});
+
+const readUser = async (users, username) => {
+  const raw = await users.get(`user:${username}`);
+  return raw ? JSON.parse(raw) : null;
+};
+
+const writeUser = (users, user) => users.set(`user:${user.username}`, JSON.stringify(user));
+
 const issuesHandler = async (request) => {
   if (request.method === "OPTIONS") return json(204, {});
 
   const store = getStore("rashtra-issues");
+  const users = getStore("rashtra-users");
   const requestUrl = new URL(request.url);
 
   if (request.method === "GET") {
     const area = requestUrl.searchParams.get("area") || "Govardhan";
     const issues = await readIssues(store, areaKey(area));
-    return json(200, { ok: true, issues });
+    const votes = await readIssues(store, `votes:${areaKey(area)}`);
+    return json(200, { ok: true, issues, votes });
   }
 
   if (request.method !== "POST") return json(405, { ok: false, message: "Method not allowed" });
@@ -76,6 +94,9 @@ const issuesHandler = async (request) => {
     return json(401, { ok: false, message: "Login required before submitting issue." });
   }
 
+  const activeUser = await readUser(users, session.username);
+  if (!activeUser) return json(401, { ok: false, message: "Account not found. Please login again." });
+
   let payload;
   try {
     payload = await request.json();
@@ -83,13 +104,52 @@ const issuesHandler = async (request) => {
     return json(400, { ok: false, message: "Invalid request body" });
   }
 
+  if (payload.action === "vote") {
+    const area = payload.area?.toString().trim() || "Govardhan";
+    const issueKey = payload.issueKey?.toString().trim() || "";
+    const title = payload.title?.toString().trim() || issueKey;
+    if (!issueKey) return json(400, { ok: false, message: "Issue vote key missing." });
+
+    const key = `votes:${areaKey(area)}`;
+    const votes = await readIssues(store, key);
+    const existing = votes.find((item) => item.issueKey === issueKey);
+    const voter = {
+      username: activeUser.username,
+      avatar: activeUser.avatar || "",
+      votedAt: new Date().toISOString(),
+    };
+
+    if (existing) {
+      existing.count += 1;
+      existing.voters = [voter, ...(existing.voters || [])].slice(0, 50);
+    } else {
+      votes.unshift({
+        issueKey,
+        title,
+        count: 1,
+        voters: [voter],
+      });
+    }
+
+    activeUser.totalVotes = (activeUser.totalVotes || 0) + 1;
+    activeUser.updatedAt = new Date().toISOString();
+    await Promise.all([store.set(key, JSON.stringify(votes)), writeUser(users, activeUser)]);
+
+    return json(201, { ok: true, votes, user: publicUser(activeUser) });
+  }
+
   const category = payload.category?.toString().trim() || "Local Issue";
   const text = payload.text?.toString().trim() || "";
   const area = payload.area?.toString().trim() || "Govardhan";
   const pincode = payload.pincode?.toString().trim() || "281502";
+  const photo = payload.photo || null;
 
   if (text.length < 4) {
     return json(400, { ok: false, message: "Issue detail thoda clearly likho." });
+  }
+
+  if (photo?.dataUrl && (!photo.dataUrl.startsWith("data:image/") || photo.dataUrl.length > 1800000)) {
+    return json(400, { ok: false, message: "Photo proof image is too large or invalid." });
   }
 
   const key = areaKey(area);
@@ -101,14 +161,24 @@ const issuesHandler = async (request) => {
     area,
     pincode,
     username: session.username,
+    avatar: activeUser.avatar || "",
+    photo: photo?.dataUrl
+      ? {
+          name: photo.name?.toString() || "photo-proof",
+          type: photo.type?.toString() || "image",
+          dataUrl: photo.dataUrl,
+        }
+      : null,
     status: "Pending Verification",
     createdAt: new Date().toISOString(),
   };
 
   issues.unshift(issue);
-  await store.set(key, JSON.stringify(issues.slice(0, 300)));
+  activeUser.totalOpinions = (activeUser.totalOpinions || 0) + 1;
+  activeUser.updatedAt = new Date().toISOString();
+  await Promise.all([store.set(key, JSON.stringify(issues.slice(0, 300))), writeUser(users, activeUser)]);
 
-  return json(201, { ok: true, issue });
+  return json(201, { ok: true, issue, user: publicUser(activeUser) });
 };
 
 export default async (request) => {

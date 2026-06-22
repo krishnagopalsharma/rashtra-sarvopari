@@ -2995,3 +2995,243 @@ html {
     order: 4;
   }
 }
+
+/* Final civic platform systems: profile, reporting terminal, voting, official links */
+.account-shell {
+  position: relative;
+  display: inline-flex;
+}
+
+.profile-menu[hidden] {
+  display: none;
+}
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 1100;
+  width: min(320px, 92vw);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(0, 229, 255, 0.32);
+  border-radius: 18px;
+  background: rgba(10, 17, 40, 0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(0, 229, 255, 0.18);
+}
+
+.profile-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-avatar {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(0, 229, 255, 0.42);
+  border-radius: 50%;
+  background: rgba(0, 229, 255, 0.12);
+  color: #fff;
+  font-weight: 900;
+}
+
+.profile-avatar img,
+.voter-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-menu-head strong,
+.profile-menu-head span {
+  display: block;
+}
+
+.profile-menu-head span,
+.avatar-upload span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.82rem;
+}
+
+.avatar-upload {
+  display: grid;
+  gap: 8px;
+}
+
+.avatar-upload input {
+  width: 100%;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.profile-stats span {
+  padding: 12px;
+  border: 1px solid rgba(0, 229, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+}
+
+.profile-stats b {
+  display: block;
+  color: #00e5ff;
+  font-size: 1.35rem;
+}
+
+.report-hub {
+  align-items: stretch;
+}
+
+.report-terminal {
+  display: grid;
+  gap: 16px;
+  padding: clamp(20px, 4vw, 34px);
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 22px;
+  background:
+    linear-gradient(rgba(10, 17, 40, 0.72), rgba(10, 17, 40, 0.86)),
+    url("../assets/kusum-sarovar-preview.png") center / cover;
+  box-shadow: 0 24px 70px rgba(0, 229, 255, 0.14);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.report-terminal label,
+.proof-drop {
+  display: grid;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 700;
+}
+
+.report-terminal textarea {
+  min-height: 170px;
+  resize: vertical;
+}
+
+.report-terminal select,
+.report-terminal textarea,
+.report-terminal input[type="file"] {
+  width: 100%;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 14px;
+  background: rgba(3, 8, 18, 0.74);
+  color: #fff;
+  padding: 14px;
+  font: inherit;
+}
+
+.issue-card.priority-card {
+  display: grid;
+  gap: 12px;
+}
+
+.vote-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.vote-action,
+.mla-link {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  color: #07111f;
+  background: linear-gradient(135deg, #00bcd4, #00e5ff);
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(0, 229, 255, 0.24);
+}
+
+.vote-action:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.voter-feed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.84rem;
+}
+
+.voter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.voter-chip img,
+.voter-chip i {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(0, 229, 255, 0.18);
+  color: #fff;
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.issue-proof,
+.govardhan-photo-tile {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+.issue-proof {
+  max-height: 220px;
+  margin-top: 12px;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+}
+
+.govardhan-photo-tile {
+  height: 150px;
+  margin-bottom: 12px;
+}
+
+.mla-official-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.mla-link-green {
+  background: linear-gradient(135deg, #19c37d, #77f0ba);
+}
+
+.mla-link-orange {
+  background: linear-gradient(135deg, #ff8a00, #ffbd59);
+}
