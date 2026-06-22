@@ -249,17 +249,17 @@
           <article class="account-card citizen-account">
             <span class="section-kicker">Aam Janta Account</span>
             <h3>Instant public access</h3>
-            <p>Name aur pin code se local issue anonymously submit kar sakte hain.</p>
+            <p>Username aur password se account create/login hoga. Logout ke baad same details se wapas login ho jayega.</p>
             <form id="citizenAccountForm" class="account-form">
               <label>
-                <span>Name</span>
-                <input name="citizenName" type="text" placeholder="Your name" required />
+                <span>Username</span>
+                <input name="citizenUsername" type="text" placeholder="Choose username" autocomplete="username" required />
               </label>
               <label>
-                <span>Pin code</span>
-                <input name="citizenPin" type="text" inputmode="numeric" placeholder="281502" required />
+                <span>Password</span>
+                <input name="citizenPassword" type="password" placeholder="Create password" autocomplete="current-password" required />
               </label>
-              <button type="submit" class="ghost-action">Enter as public user</button>
+              <button type="submit" class="ghost-action">Login / Create account</button>
             </form>
             <small id="citizenAccountStatus" class="account-status" aria-live="polite"></small>
           </article>
@@ -370,18 +370,19 @@
       <div class="account-modal-panel">
         <button class="modal-close" id="accountModalClose" type="button" aria-label="Close account modal">×</button>
         <span class="section-kicker">Citizen access</span>
-        <h2 id="accountModalTitle">Create public account</h2>
-        <p>Name aur pin code se instant local issue access. Email/password nahi chahiye.</p>
+        <h2 id="accountModalTitle">Login or create account</h2>
+        <p>Username aur password daalo. Pehli baar account banega, baad me wahi details se login hoga.</p>
         <form id="quickAccountForm" class="account-form">
           <label>
-            <span>Name</span>
-            <input name="quickName" type="text" placeholder="Your name" autocomplete="name" required />
+            <span>Username</span>
+            <input name="quickUsername" type="text" placeholder="Choose username" autocomplete="username" required />
           </label>
           <label>
-            <span>Pin code</span>
-            <input name="quickPin" type="text" inputmode="numeric" placeholder="281502" required />
+            <span>Password</span>
+            <input name="quickPassword" type="password" placeholder="Enter password" autocomplete="current-password" required />
           </label>
-          <button type="submit" class="primary-action">Save account</button>
+          <p class="auth-error" id="authMessage" aria-live="polite"></p>
+          <button type="submit" class="primary-action">Login / Create account</button>
         </form>
       </div>
     </div>

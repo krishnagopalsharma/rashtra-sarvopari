@@ -50,7 +50,8 @@ const translateStatus = (status) => siteData.language[currentLanguage]?.status?.
 const translateCategory = (category) => siteData.language[currentLanguage]?.categories?.[category] || category;
 const mvpRegion = siteData.defaultArea;
 const userStorageKey = "rashtra_user";
-const issueStorageKey = "rashtra_issues";
+const authTokenKey = "rashtra_auth_token";
+let authToken = localStorage.getItem(authTokenKey) || "";
 
 const readJson = (key, fallback) => {
   try {
@@ -64,21 +65,76 @@ const writeJson = (key, value) => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
+const apiRequest = async (path, options = {}) => {
+  const headers = {
+    "content-type": "application/json",
+    ...(options.headers || {}),
+  };
+
+  if (authToken) headers.authorization = `Bearer ${authToken}`;
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.message || "Server request failed.");
+  }
+
+  return payload;
+};
+
+const updateAccountButton = () => {
+  accountButton?.classList.toggle("is-logged-in", Boolean(currentUser));
+  if (!accountButton) return;
+  accountButton.textContent = currentUser ? `${currentUser.username} | Logout` : "Login / Create Account";
+  accountButton.setAttribute(
+    "aria-label",
+    currentUser ? "Logout current account" : "Login or create citizen account",
+  );
+};
+
 const loadCurrentUser = () => {
   currentUser = readJson(userStorageKey, null);
-  accountButton?.classList.toggle("is-logged-in", Boolean(currentUser));
-  if (accountButton) {
-    accountButton.textContent = currentUser ? `${currentUser.name} | ${currentUser.pincode}` : "Signup / Create Account";
+  if (currentUser && !currentUser.username) {
+    logoutUser();
+    return null;
   }
+  updateAccountButton();
   return currentUser;
 };
 
-const loadCitizenIssues = () => readJson(issueStorageKey, []);
+const persistSession = ({ token, user }) => {
+  authToken = token;
+  currentUser = user;
+  localStorage.setItem(authTokenKey, token);
+  writeJson(userStorageKey, user);
+  updateAccountButton();
+};
 
-const saveCitizenIssue = (issue) => {
-  const issues = loadCitizenIssues();
-  issues.unshift(issue);
-  writeJson(issueStorageKey, issues.slice(0, 80));
+const logoutUser = () => {
+  authToken = "";
+  currentUser = null;
+  localStorage.removeItem(authTokenKey);
+  localStorage.removeItem(userStorageKey);
+  updateAccountButton();
+};
+
+const authenticateUser = ({ username, password }) =>
+  apiRequest("/.netlify/functions/auth", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+
+const loadCitizenIssues = async (area) => {
+  const params = new URLSearchParams({ area });
+  const result = await apiRequest(`/.netlify/functions/issues?${params.toString()}`, {
+    method: "GET",
+  });
+  return result.issues || [];
 };
 
 const selectedIssueContext = () => {
@@ -340,8 +396,21 @@ const renderIssues = () => {
     .join("");
 };
 
-const renderStatusBoard = (selectedArea = siteData.defaultArea.focus, selectedPin = siteData.defaultArea.pin) => {
-  const filteredIssues = loadCitizenIssues().filter((issue) => issue.area === selectedArea);
+const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, selectedPin = siteData.defaultArea.pin) => {
+  let filteredIssues = [];
+
+  try {
+    filteredIssues = await loadCitizenIssues(selectedArea);
+  } catch (error) {
+    statusBoard.innerHTML = `
+      <article class="status-item empty-state reveal">
+        <span>Netlify database</span>
+        <strong>Real issue database will connect after Netlify Functions deploy.</strong>
+        <p>${escapeHtml(error.message || "Backend unavailable in local static preview.")}</p>
+      </article>
+    `;
+    return;
+  }
 
   if (!filteredIssues.length) {
     statusBoard.innerHTML = `
@@ -361,7 +430,7 @@ const renderStatusBoard = (selectedArea = siteData.defaultArea.focus, selectedPi
           <span>${translateCategory(issue.category)} | ${escapeHtml(issue.area)} | ${escapeHtml(issue.pincode)}</span>
           <strong><i class="status-dot pending"></i>Live Citizen Feed</strong>
           <p>"${escapeHtml(issue.text)}"</p>
-          <small>Reported by: <b>${escapeHtml(issue.name)}</b></small>
+          <small>Reported by: <b>${escapeHtml(issue.username || issue.name || "Citizen")}</b></small>
         </article>
       `,
     )
@@ -381,19 +450,18 @@ const closeAccountModal = () => {
   document.body.classList.remove("no-scroll");
 };
 
-const publishCitizenIssue = ({ category, text, user }) => {
+const publishCitizenIssue = async ({ category, text }) => {
   const context = selectedIssueContext();
-  const issue = {
-    id: `issue-${Date.now()}`,
-    category,
-    text: text.trim(),
-    name: user.name,
-    pincode: user.pincode || context.pin,
-    area: context.area,
-    createdAt: new Date().toISOString(),
-  };
-  saveCitizenIssue(issue);
-  renderStatusBoard(context.area, context.pin);
+  await apiRequest("/.netlify/functions/issues", {
+    method: "POST",
+    body: JSON.stringify({
+      category,
+      text: text.trim(),
+      pincode: context.pin,
+      area: context.area,
+    }),
+  });
+  await renderStatusBoard(context.area, context.pin);
   setupReveal();
 };
 
@@ -408,7 +476,7 @@ const openOpinionBox = (category, user) => {
       <button class="modal-close" type="button" aria-label="Close opinion modal">×</button>
       <span class="section-kicker">Citizen issue</span>
       <h3>Write your opinion/issue for ${escapeHtml(translateCategory(category))}</h3>
-      <p>Posting as <b>${escapeHtml(user.name)}</b> | Pin: ${escapeHtml(user.pincode)}</p>
+      <p>Posting as <b>${escapeHtml(user.username)}</b> | Area: ${escapeHtml(selectedIssueContext().area)}</p>
       <textarea name="opinionText" rows="5" placeholder="Yahan apni asli shikayat ya raye likhein..." required></textarea>
       <div class="opinion-actions">
         <button type="submit" class="primary-action">Live Publish Karein</button>
@@ -432,11 +500,21 @@ const openOpinionBox = (category, user) => {
     }
   });
 
-  overlay.querySelector("form")?.addEventListener("submit", (event) => {
+  overlay.querySelector("form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const text = overlay.querySelector("textarea")?.value.trim();
     if (!text) return;
-    publishCitizenIssue({ category, text, user });
+    const submitButton = overlay.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Publishing...";
+    try {
+      await publishCitizenIssue({ category, text });
+    } catch (error) {
+      submitButton.disabled = false;
+      submitButton.textContent = "Live Publish Karein";
+      window.alert(error.message || "Issue submit nahi ho paya.");
+      return;
+    }
     close();
   });
 };
@@ -633,21 +711,39 @@ languageToggle.addEventListener("click", () => {
   applyLanguage();
 });
 
-accountButton?.addEventListener("click", openAccountModal);
+accountButton?.addEventListener("click", () => {
+  if (currentUser) {
+    logoutUser();
+    if (citizenAccountStatus) citizenAccountStatus.textContent = "Logged out. Same username/password se dobara login ho jayega.";
+    return;
+  }
+  openAccountModal();
+});
 accountModalClose?.addEventListener("click", closeAccountModal);
 accountModal?.addEventListener("click", (event) => {
   if (event.target === accountModal) closeAccountModal();
 });
 
-quickAccountForm?.addEventListener("submit", (event) => {
+quickAccountForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(quickAccountForm);
-  const name = formData.get("quickName")?.toString().trim();
-  const pincode = formData.get("quickPin")?.toString().trim();
-  if (!name || !pincode) return;
-  writeJson(userStorageKey, { name, pincode });
-  loadCurrentUser();
-  closeAccountModal();
+  const username = formData.get("quickUsername")?.toString().trim();
+  const password = formData.get("quickPassword")?.toString();
+  const authMessage = document.querySelector("#authMessage");
+  const button = quickAccountForm.querySelector("button[type='submit']");
+  if (!username || !password) return;
+  if (authMessage) authMessage.textContent = "Connecting to Netlify secure account...";
+  button.disabled = true;
+  try {
+    const session = await authenticateUser({ username, password });
+    persistSession(session);
+    quickAccountForm.reset();
+    closeAccountModal();
+  } catch (error) {
+    if (authMessage) authMessage.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 });
 
 issueGrid.addEventListener("click", (event) => {
@@ -795,14 +891,11 @@ if ("permissions" in navigator && "geolocation" in navigator) {
 }
 
 if (feedbackForm) {
-  feedbackForm.addEventListener("submit", (event) => {
+  feedbackForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = feedbackForm.querySelector("button");
     const original = button.textContent;
     const descriptionInput = feedbackForm.querySelector('[name="description"]');
-    const selectedArea = reportArea.value || areaInput.value || mvpRegion.focus;
-    const selectedAreaMeta = siteData.areaOptions.find((area) => area.name === selectedArea);
-    const currentPincode = selectedAreaMeta?.pin || pinInput.value || mvpRegion.pin;
     const category = categoryInput?.value || siteData.issueCategories[0];
     const description = descriptionInput?.value.trim() || "No detailed summary provided.";
     const user = loadCurrentUser();
@@ -812,34 +905,14 @@ if (feedbackForm) {
       return;
     }
 
-    publishCitizenIssue({ category, text: description, user });
-    button.textContent = t("savedLocally");
     button.disabled = true;
-    feedbackForm.reset();
-    reportArea.value = areaInput.value || mvpRegion.focus;
-    window.setTimeout(() => {
-      button.textContent = original;
-      button.disabled = false;
-    }, 1800);
-    return;
-
-    const liveIssueCard = document.createElement("article");
-    const meta = document.createElement("span");
-    const status = document.createElement("strong");
-    const statusText = document.createElement("span");
-    const body = document.createElement("p");
-
-    liveIssueCard.className = "issue-card live-issue-card reveal is-visible";
-    meta.textContent = `${translateCategory(category)} | ${selectedArea.toUpperCase()} | ${currentPincode}`;
-    status.innerHTML = '<i class="status-dot pending"></i>';
-    statusText.textContent = currentLanguage === "hi" ? "सत्यापन लंबित" : "Pending Verification";
-    status.append(statusText);
-    body.textContent = description;
-    liveIssueCard.append(meta, status, body);
-    issueGrid.prepend(liveIssueCard);
-
-    button.textContent = t("savedLocally");
-    button.disabled = true;
+    button.textContent = "Publishing...";
+    try {
+      await publishCitizenIssue({ category, text: description, user });
+      button.textContent = "Submitted to Netlify";
+    } catch (error) {
+      button.textContent = error.message || "Submit failed";
+    }
     feedbackForm.reset();
     reportArea.value = areaInput.value || mvpRegion.focus;
     window.setTimeout(() => {
@@ -901,15 +974,31 @@ assemblyList.addEventListener("click", (event) => {
   });
 });
 
-citizenAccountForm?.addEventListener("submit", (event) => {
+citizenAccountForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(citizenAccountForm);
-  const name = formData.get("citizenName")?.toString().trim() || "Public user";
-  const pin = formData.get("citizenPin")?.toString().trim() || mvpRegion.pin;
-  writeJson(userStorageKey, { name, pincode: pin });
-  loadCurrentUser();
-  if (citizenAccountStatus) {
-    citizenAccountStatus.textContent = `${name} logged in for pin ${pin}. Issues will stay anonymous for public view.`;
+  const username = formData.get("citizenUsername")?.toString().trim();
+  const password = formData.get("citizenPassword")?.toString();
+  const button = citizenAccountForm.querySelector("button[type='submit']");
+  if (!username || !password) return;
+
+  button.disabled = true;
+  if (citizenAccountStatus) citizenAccountStatus.textContent = "Connecting to Netlify account...";
+
+  try {
+    const session = await authenticateUser({ username, password });
+    persistSession(session);
+    citizenAccountForm.reset();
+    if (citizenAccountStatus) {
+      citizenAccountStatus.textContent =
+        session.mode === "created"
+          ? `${session.user.username} account created on Netlify.`
+          : `${session.user.username} logged in from Netlify.`;
+    }
+  } catch (error) {
+    if (citizenAccountStatus) citizenAccountStatus.textContent = error.message;
+  } finally {
+    button.disabled = false;
   }
 });
 

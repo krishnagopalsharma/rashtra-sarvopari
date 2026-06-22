@@ -1,0 +1,11 @@
+{
+  "name": "rashtra-sarvopari",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('Rashtra Sarvopari static build ready')\""
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0"
+  }
+}
