@@ -45,7 +45,7 @@ const signToken = (payload) => {
   return `${body}.${signature}`;
 };
 
-exports.handler = async (event) => {
+const authHandler = async (event) => {
   if (event.httpMethod === "OPTIONS") return json(204, {});
   if (event.httpMethod !== "POST") return json(405, { ok: false, message: "Method not allowed" });
 
@@ -115,4 +115,16 @@ exports.handler = async (event) => {
     },
     token: signToken({ username, issuedAt: Date.now() }),
   });
+};
+
+exports.handler = async (event) => {
+  try {
+    return await authHandler(event);
+  } catch (error) {
+    console.error("Auth function failed", error);
+    return json(500, {
+      ok: false,
+      message: `Auth backend error: ${error.message || "Unknown Netlify function error"}`,
+    });
+  }
 };

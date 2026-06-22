@@ -50,7 +50,7 @@ const readIssues = async (store, key) => {
   }
 };
 
-exports.handler = async (event) => {
+const issuesHandler = async (event) => {
   if (event.httpMethod === "OPTIONS") return json(204, {});
 
   const { getStore } = await import("@netlify/blobs");
@@ -105,4 +105,16 @@ exports.handler = async (event) => {
   await store.set(key, JSON.stringify(issues.slice(0, 300)));
 
   return json(201, { ok: true, issue });
+};
+
+exports.handler = async (event) => {
+  try {
+    return await issuesHandler(event);
+  } catch (error) {
+    console.error("Issues function failed", error);
+    return json(500, {
+      ok: false,
+      message: `Issues backend error: ${error.message || "Unknown Netlify function error"}`,
+    });
+  }
 };
