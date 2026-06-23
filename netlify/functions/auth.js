@@ -19,7 +19,7 @@ const normalizeUsername = (value = "") =>
     .toString()
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9._-]/g, "");
+    .replace(/[^a-z0-9._]/g, "");
 
 const base64url = (value) =>
   Buffer.from(value)
@@ -72,6 +72,24 @@ const publicUser = (user) => ({
   lastLoginAt: user.lastLoginAt,
 });
 
+const requireAdmin = (request) => {
+  const authHeader = request.headers.get("authorization") || "";
+  const session = verifyToken(authHeader.replace(/^Bearer\s+/i, ""));
+  return session?.username === "krishnagopalsharma" ? session : null;
+};
+
+const listUsers = async (users) => {
+  const listed = await users.list();
+  const keys = (listed.blobs || []).map((blob) => blob.key).filter((key) => key.startsWith("user:"));
+  const records = await Promise.all(
+    keys.map(async (key) => {
+      const raw = await users.get(key);
+      return raw ? publicUser(JSON.parse(raw)) : null;
+    }),
+  );
+  return records.filter(Boolean).sort((a, b) => a.username.localeCompare(b.username));
+};
+
 const parseBody = async (request) => {
   try {
     return await request.json();
@@ -88,6 +106,21 @@ const authHandler = async (request) => {
   if (!payload) return json(400, { ok: false, message: "Invalid request body" });
 
   const users = getStore("rashtra-users");
+
+  if (payload.action === "adminList") {
+    if (!requireAdmin(request)) return json(403, { ok: false, message: "Admin access required." });
+    return json(200, { ok: true, users: await listUsers(users) });
+  }
+
+  if (payload.action === "deleteUser") {
+    if (!requireAdmin(request)) return json(403, { ok: false, message: "Admin access required." });
+    const username = normalizeUsername(payload.username);
+    if (!username || username === "krishnagopalsharma") {
+      return json(400, { ok: false, message: "This account cannot be deleted." });
+    }
+    await users.delete(`user:${username}`);
+    return json(200, { ok: true, deleted: username });
+  }
 
   if (payload.action === "updateAvatar") {
     const authHeader = request.headers.get("authorization") || "";

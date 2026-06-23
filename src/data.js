@@ -120,17 +120,17 @@ export const siteData = {
     },
   ],
   stateLeadership: {
-    title: "Uttar Pradesh Executive Leadership",
+    title: "Uttar Pradesh Civic Administration",
     summary: "State-level policy, departments, and district administration follow-up node for civic delivery.",
     points: ["State: Uttar Pradesh", "District focus: Mathura", "MVP node: Govardhan"],
   },
   govardhanAffidavit: {
     summary:
-      "Meghshyam Singh represents Govardhan Assembly Constituency No. 83. Full affidavit fields should be verified from official election documents before public release.",
+      "Meghshyam Singh represents Govardhan Assembly Constituency No. 83. Official affidavit records are linked for direct public review.",
     assets:
-      "Asset and liability details are reserved for verified affidavit import. This tab is ready for structured property, income, and liability data.",
+      "Asset and liability details should be read from the official candidate affidavit source linked below.",
     contact:
-      "Public contact details should be published only after representative office verification. Constituency grievance routing is prepared for Govardhan, pin 281502.",
+      "Public contact and grievance routing should use verified government or representative office channels for Govardhan, pin 281502.",
   },
   areaMedia: {
     Mathura: {
@@ -309,7 +309,7 @@ export const siteData = {
   affidavitFields: ["Education", "Assets", "Land/property", "Criminal cases", "Source affidavit"],
   language: {
     en: {
-      navAreaBoard: "Area Board",
+      navAreaBoard: "AreaBoard",
       navReport: "Report",
       navIssues: "Issues",
       navRepresentatives: "Representatives",
@@ -336,7 +336,7 @@ export const siteData = {
       heritageText:
         "Famous places and local visuals stay separate from the satellite issue map, so users can explore the area without confusing photos with live civic reports.",
       dashboardKicker: "Local board",
-      dashboardTitle: "Area report card",
+      dashboardTitle: "Govardhan Public Representatives",
       dashboardText:
         "Issue categories, verification status, and resolution progress are the main product. Representatives stay as reference, not the whole website.",
       historyKicker: "Deep view",
@@ -357,7 +357,7 @@ export const siteData = {
       buildersKicker: "India first",
       buildersTitle: "People who helped build India",
       buildersText:
-        "A respectful bottom section for national builders, reformers, scientists, and public servants. Photos and entries should be added only with verified sources.",
+        "A respectful section for national builders, freedom fighters, reformers, scientists, and public servants.",
       footerText: "National civic issue tracking platform for Indian districts.",
       copyrightText:
         "© 2026 Rashtra Sarvopari. Designed & Developed by Krishna Gopal Sharma. All Rights Reserved.",

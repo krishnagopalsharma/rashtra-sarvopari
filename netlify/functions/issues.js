@@ -70,6 +70,21 @@ const readUser = async (users, username) => {
 
 const writeUser = (users, user) => users.set(`user:${user.username}`, JSON.stringify(user));
 
+const requireAdmin = (request) => {
+  const authHeader = request.headers.get("authorization") || "";
+  const session = verifyToken(authHeader.replace(/^Bearer\s+/i, ""));
+  return session?.username === "krishnagopalsharma" ? session : null;
+};
+
+const uniqueVoters = (voters = []) => {
+  const seen = new Set();
+  return voters.filter((voter) => {
+    if (!voter?.username || seen.has(voter.username)) return false;
+    seen.add(voter.username);
+    return true;
+  });
+};
+
 const issuesHandler = async (request) => {
   if (request.method === "OPTIONS") return json(204, {});
 
@@ -120,8 +135,12 @@ const issuesHandler = async (request) => {
     };
 
     if (existing) {
-      existing.count += 1;
-      existing.voters = [voter, ...(existing.voters || [])].slice(0, 50);
+      const voters = uniqueVoters(existing.voters || []);
+      if (voters.some((item) => item.username === activeUser.username)) {
+        return json(409, { ok: false, message: "You have already voted for this issue." });
+      }
+      existing.voters = [voter, ...voters].slice(0, 50);
+      existing.count = existing.voters.length;
     } else {
       votes.unshift({
         issueKey,
@@ -136,6 +155,18 @@ const issuesHandler = async (request) => {
     await Promise.all([store.set(key, JSON.stringify(votes)), writeUser(users, activeUser)]);
 
     return json(201, { ok: true, votes, user: publicUser(activeUser) });
+  }
+
+  if (payload.action === "purgePost") {
+    if (!requireAdmin(request)) return json(403, { ok: false, message: "Admin access required." });
+    const area = payload.area?.toString().trim() || "Govardhan";
+    const issueId = payload.issueId?.toString().trim();
+    if (!issueId) return json(400, { ok: false, message: "Post id missing." });
+    const key = areaKey(area);
+    const issues = await readIssues(store, key);
+    const filtered = issues.filter((issue) => issue.id !== issueId);
+    await store.set(key, JSON.stringify(filtered));
+    return json(200, { ok: true, removed: issueId, issues: filtered });
   }
 
   const category = payload.category?.toString().trim() || "Local Issue";

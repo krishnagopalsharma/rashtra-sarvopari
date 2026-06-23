@@ -42,14 +42,16 @@
       </a>
 
       <nav class="nav-links" aria-label="Main navigation">
-        <a href="#dashboard" data-i18n="navAreaBoard">Area Board</a>
+        <a href="#dashboard" data-i18n="navAreaBoard">AreaBoard</a>
         <a href="#report" data-i18n="navReport">Report</a>
         <a href="#issues" data-i18n="navIssues">Issues</a>
         <a href="#contacts" data-i18n="navRepresentatives">Representatives</a>
       </nav>
 
       <div class="account-shell">
-        <button class="account-toggle" id="accountButton" type="button">Login / Create Account</button>
+        <button class="account-toggle" id="accountButton" type="button" aria-label="Login or open profile">
+          <span class="account-button-avatar" id="accountButtonAvatar">RS</span>
+        </button>
         <div class="profile-menu" id="profileMenu" hidden>
           <div class="profile-menu-head">
             <div class="profile-avatar" id="profileAvatar">RS</div>
@@ -59,7 +61,7 @@
             </div>
           </div>
           <label class="avatar-upload">
-            <span>Upload avatar</span>
+            <span id="avatarUploadLabel">Add Profile Photo</span>
             <input id="avatarInput" type="file" accept="image/*" />
           </label>
           <div class="profile-stats">
@@ -70,9 +72,6 @@
         </div>
       </div>
 
-      <button class="language-toggle" id="languageToggle" type="button">
-        हिंदी
-      </button>
     </header>
 
     <main>
@@ -156,7 +155,7 @@
         <div class="satellite-card" id="areaMapCard"></div>
       </section>
 
-      <section class="heritage-strip report-hub" aria-labelledby="heritageTitle" data-dashboard-section hidden>
+      <section class="heritage-strip report-hub" id="report" aria-labelledby="heritageTitle" data-dashboard-section hidden>
         <div class="gallery-intro">
           <span class="section-kicker">Citizen terminal</span>
           <h2 id="heritageTitle">Report Local Issue & Upload Photo</h2>
@@ -173,69 +172,21 @@
             <span>Your opinion / issue details</span>
             <textarea name="description" rows="7" placeholder="Write the local issue clearly with place, landmark, and urgency..." required></textarea>
           </label>
-          <label class="proof-drop">
-            <span>Upload photographic proof</span>
+          <label class="proof-drop custom-file-action">
+            <span>Photo proof</span>
             <input name="photoProof" type="file" accept="image/*" />
+            <b>📷 Upload Photo Proof</b>
           </label>
           <button type="submit" class="primary-action">Submit issue to live feed</button>
           <small id="slideReportStatus" class="account-status" aria-live="polite"></small>
         </form>
       </section>
 
-      <section class="dashboard" id="dashboard" aria-labelledby="dashboardTitle" data-dashboard-section hidden>
+      <section class="dashboard representatives-section" id="dashboard" aria-labelledby="dashboardTitle" data-dashboard-section hidden>
         <div class="section-heading">
-          <span class="section-kicker" data-i18n="dashboardKicker">Local board</span>
-          <h2 id="dashboardTitle" data-i18n="dashboardTitle">Area report card</h2>
-          <p data-i18n="dashboardText">
-            Issue categories, verification status, and resolution progress are
-            the main product. Representatives stay as reference, not the whole website.
-          </p>
-        </div>
-
-        <div class="stats-grid">
-          <article class="stat-card">
-            <span data-i18n="reportedIssues">Reported issues</span>
-            <strong>128</strong>
-            <p>Live Govardhan civic reports received.</p>
-          </article>
-          <article class="stat-card">
-            <span data-i18n="verified">Verified</span>
-            <strong>74</strong>
-            <p>Reports with area, category, and evidence.</p>
-          </article>
-          <article class="stat-card">
-            <span data-i18n="resolved">Resolved</span>
-            <strong>31</strong>
-            <p>Resolved after public or admin verification.</p>
-          </article>
-          <article class="stat-card">
-            <span data-i18n="topIssue">Top issue</span>
-            <strong>Road</strong>
-            <p>Most repeated local infrastructure concern.</p>
-          </article>
-        </div>
-
-        <div class="report-card-strip">
-          <article>
-            <span data-i18n="issueStatus">Issue status</span>
-            <strong><i class="dot pending"></i><span data-i18n="pending">Pending</span></strong>
-            <p data-i18n="pendingText">Reports waiting for verification.</p>
-          </article>
-          <article>
-            <span data-i18n="departmentFollowup">Department follow-up</span>
-            <strong><i class="dot progress"></i><span data-i18n="inProgress">In Progress</span></strong>
-            <p data-i18n="inProgressText">Issue shared or action started.</p>
-          </article>
-          <article>
-            <span data-i18n="publicClose">Public close</span>
-            <strong><i class="dot resolved"></i><span data-i18n="resolvedStatus">Resolved</span></strong>
-            <p data-i18n="resolvedStatusText">Closed after proof or admin review.</p>
-          </article>
-          <article>
-            <span data-i18n="publicRating">Public rating</span>
-            <strong>4.0 / 5</strong>
-            <p data-i18n="publicRatingText">Citizen trust score from submitted feedback.</p>
-          </article>
+          <span class="section-kicker">Representatives</span>
+          <h2 id="dashboardTitle">Govardhan Public Representatives</h2>
+          <p>Focused, official reference cards for the selected Govardhan civic node.</p>
         </div>
 
         <div class="representative-layout" id="contacts">
@@ -248,6 +199,10 @@
               <li data-i18n="mpPointTwo">Won in 2014, 2019, and 2024.</li>
               <li data-i18n="mpPointThree">2024 runner-up: Suresh Singh (BSP).</li>
             </ul>
+            <div class="mp-official-links">
+              <a class="mla-link mla-link-green" href="https://mlaladsup.in/" target="_blank" rel="noopener noreferrer">📊 MP Work Record</a>
+              <a class="mla-link mla-link-orange" href="https://www.myneta.info/" target="_blank" rel="noopener noreferrer">📋 Check Official Affidavit</a>
+            </div>
           </article>
 
           <div class="assembly-list" id="assemblyList"></div>
@@ -271,8 +226,7 @@
           <span class="section-kicker" data-i18n="issuesKicker">Public voice</span>
           <h2 id="issuesTitle" data-i18n="issuesTitle">Area issues grid</h2>
           <p data-i18n="issuesText">
-            People can vote on local issues first. Login, photo upload, and
-            admin verification will come in the next version.
+            Vote on the most important Govardhan problems, then unlock the live citizen feed.
           </p>
         </div>
 
@@ -281,37 +235,32 @@
         <p class="filter-note" id="filterNote">
           Showing issues for Govardhan pin code 281502 only.
         </p>
+        <div class="feed-gate-note" id="feedGateNote">
+          Vote on at least one critical issue above to unlock the Live Citizen Feed.
+        </div>
         <div class="status-board issues-live-container" id="statusBoard" aria-label="Recent issue status board"></div>
+      </section>
 
-        <form class="feedback-panel submit-local-issue prototype-form" id="report">
-          <div>
-            <span class="section-kicker" data-i18n="prototypeForm">Prototype form</span>
-            <h3 data-i18n="submitIssueTitle">Submit a local issue</h3>
-          </div>
-          <label>
-            <span data-i18n="category">Category</span>
-            <select name="category">
-              <option>Street light</option>
-              <option>Road repair</option>
-              <option>Water supply</option>
-              <option>Sanitation</option>
-              <option>Yamuna cleanliness</option>
-            </select>
-          </label>
-          <label>
-            <span data-i18n="reportArea">Area</span>
-            <select id="reportArea" name="area"></select>
-          </label>
-          <label>
-            <span data-i18n="shortDescription">Short description</span>
-            <textarea name="description" placeholder="Write the issue clearly..."></textarea>
-          </label>
-          <label>
-            <span data-i18n="photoProof">Photo proof</span>
-            <input name="photoProof" type="file" />
-          </label>
-          <button type="submit" class="primary-action" data-i18n="submitForReview">Submit for review</button>
-        </form>
+      <section class="admin-panel-section" id="adminPanel" data-dashboard-section hidden>
+        <div class="section-heading">
+          <span class="section-kicker">Admin only</span>
+          <h2>Moderation Control Panel</h2>
+          <p>Visible only for @krishnagopalsharma. Manage live users and citizen posts from Netlify storage.</p>
+        </div>
+        <div class="admin-toolbar">
+          <button class="ghost-action" id="adminRefresh" type="button">Refresh live data</button>
+          <span id="adminStatus" aria-live="polite"></span>
+        </div>
+        <div class="admin-grid">
+          <section>
+            <h3>Registered users</h3>
+            <div id="adminUsersGrid" class="admin-list"></div>
+          </section>
+          <section>
+            <h3>Citizen posts</h3>
+            <div id="adminPostsGrid" class="admin-list"></div>
+          </section>
+        </div>
       </section>
 
       <section class="builders-section national-builders-section build-india" id="builders" aria-labelledby="buildersTitle" data-dashboard-section hidden>
@@ -319,13 +268,41 @@
           <span class="section-kicker" data-i18n="buildersKicker">India first</span>
           <h2 id="buildersTitle" data-i18n="buildersTitle">People who helped build India</h2>
           <p data-i18n="buildersText">
-            A respectful bottom section for national builders, reformers,
-            scientists, and public servants. Photos and entries should be added
-            only with verified sources.
+            A respectful section for national builders, freedom fighters, reformers, scientists, and public servants.
           </p>
         </div>
 
         <div class="builder-grid">
+          <article>
+            <span>REVOLUTIONARY</span>
+            <strong>Bhagat Singh</strong>
+            <h3>Inquilab Zindabad</h3>
+            <p>Sacrificed his life at the age of 23, inspiring generations with supreme patriotism and courage.</p>
+          </article>
+          <article>
+            <span>LEADERSHIP</span>
+            <strong>Subhash Chandra Bose</strong>
+            <h3>Netaji / Azad Hind Fauj</h3>
+            <p>Organized the Indian National Army (INA) to fiercely fight British rule from outside India's borders.</p>
+          </article>
+          <article>
+            <span>REVOLUTIONARY</span>
+            <strong>Chandra Shekhar Azad</strong>
+            <h3>Azad hi rahein hain, Azad hi rahenge</h3>
+            <p>Led the HSRA forces and vowed to never be captured alive by the British Raj.</p>
+          </article>
+          <article>
+            <span>INTEGRATION</span>
+            <strong>Sardar Vallabhbhai Patel</strong>
+            <h3>Iron Man of India</h3>
+            <p>Stood resilient to unify 562 princely states into one strong, sovereign, and united Indian nation.</p>
+          </article>
+          <article>
+            <span>FREEDOM STRUGGLE</span>
+            <strong>Rani Lakshmibai</strong>
+            <h3>Jhansi Ki Rani</h3>
+            <p>One of the legendary leading figures of the 1857 rebellion who fought fearlessly against British annexation.</p>
+          </article>
           <article>
             <span data-i18n="constitution">Constitution</span>
             <strong>Dr. B. R. Ambedkar</strong>

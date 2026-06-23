@@ -17,9 +17,17 @@ const assemblyList = document.querySelector("#assemblyList");
 const winnerTimeline = document.querySelector("#winnerTimeline");
 const issueGrid = document.querySelector("#issueGrid");
 const statusBoard = document.querySelector("#statusBoard");
-const languageToggle = document.querySelector("#languageToggle");
-const feedbackForm = document.querySelector("#report");
-const reportArea = document.querySelector("#reportArea");
+const feedGateNote = document.querySelector("#feedGateNote");
+const languageToggle =
+  document.querySelector("#languageToggle") ||
+  {
+    textContent: "",
+    classList: { toggle() {} },
+    setAttribute() {},
+    addEventListener() {},
+  };
+const feedbackForm = document.querySelector("#legacyReportForm");
+const reportArea = document.querySelector("#reportArea") || { innerHTML: "", value: "", addEventListener() {} };
 const categoryInput = feedbackForm?.querySelector("select");
 const locationButton = document.querySelector("#locationButton");
 const clearButton = document.querySelector("#clearButton");
@@ -36,6 +44,7 @@ const lightboxTitle = document.querySelector("#lightboxTitle");
 const lightboxDescription = document.querySelector("#lightboxDescription");
 const lightboxClose = document.querySelector("#lightboxClose");
 const accountButton = document.querySelector("#accountButton");
+const accountButtonAvatar = document.querySelector("#accountButtonAvatar");
 const accountShell = document.querySelector(".account-shell");
 const profileMenu = document.querySelector("#profileMenu");
 const profileUsername = document.querySelector("#profileUsername");
@@ -43,18 +52,25 @@ const profileAvatar = document.querySelector("#profileAvatar");
 const profileVotes = document.querySelector("#profileVotes");
 const profileOpinions = document.querySelector("#profileOpinions");
 const avatarInput = document.querySelector("#avatarInput");
+const avatarUploadLabel = document.querySelector("#avatarUploadLabel");
 const profileLogout = document.querySelector("#profileLogout");
 const accountModal = document.querySelector("#accountModal");
 const accountModalClose = document.querySelector("#accountModalClose");
 const quickAccountForm = document.querySelector("#quickAccountForm");
 const slideReportForm = document.querySelector("#slideReportForm");
 const slideReportStatus = document.querySelector("#slideReportStatus");
+const adminPanel = document.querySelector("#adminPanel");
+const adminRefresh = document.querySelector("#adminRefresh");
+const adminStatus = document.querySelector("#adminStatus");
+const adminUsersGrid = document.querySelector("#adminUsersGrid");
+const adminPostsGrid = document.querySelector("#adminPostsGrid");
 
 let currentLanguage = "en";
 let showDashboard = false;
 let verifiedNetaUnlocked = localStorage.getItem("rashtraVerifiedNeta") === "true";
 let currentUser = null;
 let latestVoteData = [];
+let revealObserver = null;
 
 const t = (key) => siteData.language[currentLanguage]?.[key] || siteData.language.en[key] || key;
 const translateStatus = (status) => siteData.language[currentLanguage]?.status?.[status] || status;
@@ -102,12 +118,21 @@ const apiRequest = async (path, options = {}) => {
 const updateAccountButton = () => {
   accountButton?.classList.toggle("is-logged-in", Boolean(currentUser));
   if (!accountButton) return;
-  accountButton.textContent = currentUser ? `@${currentUser.username}` : "Login / Create Account";
+  const label = currentUser ? `@${currentUser.username}` : "Login";
+  accountButton.title = label;
+  if (accountButtonAvatar) {
+    accountButtonAvatar.innerHTML = currentUser?.avatar
+      ? `<img src="${currentUser.avatar}" alt="${escapeHtml(currentUser.username)} avatar" />`
+      : currentUser?.username
+        ? escapeHtml(currentUser.username.slice(0, 2).toUpperCase())
+        : "RS";
+  }
   accountButton.setAttribute(
     "aria-label",
     currentUser ? "Open citizen profile" : "Login or create citizen account",
   );
   renderProfileMenu();
+  renderAdminPanel();
 };
 
 const loadCurrentUser = () => {
@@ -149,6 +174,72 @@ const updateAvatar = (avatar) =>
     body: JSON.stringify({ action: "updateAvatar", avatar }),
   });
 
+const isAdminUser = () => currentUser?.username === "krishnagopalsharma";
+
+const fetchAdminData = () =>
+  apiRequest("/.netlify/functions/auth", {
+    method: "POST",
+    body: JSON.stringify({ action: "adminList" }),
+  });
+
+const deleteAdminUser = (username) =>
+  apiRequest("/.netlify/functions/auth", {
+    method: "POST",
+    body: JSON.stringify({ action: "deleteUser", username }),
+  });
+
+const purgePost = (issueId) =>
+  apiRequest("/.netlify/functions/issues", {
+    method: "POST",
+    body: JSON.stringify({ action: "purgePost", issueId, area: selectedIssueContext().area }),
+  });
+
+const renderAdminPanel = async () => {
+  if (!adminPanel) return;
+  const visible = showDashboard && isAdminUser();
+  adminPanel.hidden = !visible;
+  if (!visible) return;
+  if (adminStatus) adminStatus.textContent = "Loading live database...";
+  try {
+    const data = await fetchAdminData();
+    const issues = await loadCitizenIssues(selectedIssueContext().area);
+    if (adminUsersGrid) {
+      adminUsersGrid.innerHTML = (data.users || [])
+        .map(
+          (user) => `
+            <article class="admin-row">
+              <div>
+                <strong>@${escapeHtml(user.username)}</strong>
+                <span>${user.totalVotes || 0} votes | ${user.totalOpinions || 0} opinions</span>
+              </div>
+              <button class="danger-action" type="button" data-admin-delete-user="${escapeHtml(user.username)}"${user.username === "krishnagopalsharma" ? " disabled" : ""}>Delete User Account</button>
+            </article>
+          `,
+        )
+        .join("") || `<article class="admin-row"><span>No users found.</span></article>`;
+    }
+    if (adminPostsGrid) {
+      adminPostsGrid.innerHTML = issues
+        .map(
+          (issue) => `
+            <article class="admin-row">
+              <div>
+                <strong>${escapeHtml(issue.category)}</strong>
+                <span>@${escapeHtml(issue.username || "citizen")} | ${escapeHtml(issue.pincode || "")}</span>
+                <p>${escapeHtml(issue.text || "")}</p>
+              </div>
+              <button class="danger-action" type="button" data-admin-purge-post="${escapeHtml(issue.id)}">Purge Post</button>
+            </article>
+          `,
+        )
+        .join("") || `<article class="admin-row"><span>No citizen posts yet.</span></article>`;
+    }
+    if (adminStatus) adminStatus.textContent = "Admin data synced.";
+  } catch (error) {
+    if (adminStatus) adminStatus.textContent = error.message || "Admin sync failed.";
+  }
+};
+
 const renderProfileMenu = () => {
   if (!profileMenu || !profileUsername || !profileAvatar) return;
   if (!currentUser) {
@@ -158,6 +249,7 @@ const renderProfileMenu = () => {
   profileUsername.textContent = `@${currentUser.username}`;
   profileVotes.textContent = currentUser.totalVotes || 0;
   profileOpinions.textContent = currentUser.totalOpinions || 0;
+  if (avatarUploadLabel) avatarUploadLabel.textContent = currentUser.avatar ? "Update Avatar" : "Add Profile Photo";
   if (currentUser.avatar) {
     profileAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="${currentUser.username} avatar" />`;
   } else {
@@ -356,9 +448,9 @@ const renderDistrictOptions = (selectedValue = districtInput.value) => {
 const renderAreaOptions = (selectedValue = "") => {
   const options = areaOptionsMarkup(mathuraTehsilOptions());
   areaInput.innerHTML = options;
-  reportArea.innerHTML = options;
+  if (reportArea) reportArea.innerHTML = options;
   areaInput.value = selectedValue && mathuraTehsilNames.includes(selectedValue) ? selectedValue : "";
-  reportArea.value = "";
+  if (reportArea) reportArea.value = "";
   if (!areaInput.value) pinInput.value = "";
 };
 
@@ -409,25 +501,12 @@ const renderAssembly = () => {
   const govardhanSeat =
     siteData.assemblySeats.find((seat) => seat.name === mvpRegion.focus) || siteData.assemblySeats[0];
   const affidavit = siteData.govardhanAffidavit;
-  const verifiedBadge = verifiedNetaUnlocked
-    ? '<span class="verified-badge">Verified Neta</span>'
-    : '<span class="verified-badge is-pending">Docs pending</span>';
 
   assemblyList.innerHTML = `
     <div class="representative-hierarchy reveal">
-      <article class="state-node">
-        <span class="tier-label">State Node</span>
-        <strong>${siteData.stateLeadership.title}</strong>
-        <p>${siteData.stateLeadership.summary}</p>
-        <div class="node-pills">
-          ${siteData.stateLeadership.points.map((point) => `<span>${point}</span>`).join("")}
-        </div>
-      </article>
-
       <article class="tehsil-node assembly-card">
         <div class="node-head">
           <span class="tier-label">Tehsil Node | Assembly #${govardhanSeat.seatNo}</span>
-          ${verifiedBadge}
         </div>
         <h3>${govardhanSeat.name} MLA</h3>
         <p class="leader-name">${govardhanSeat.mla}</p>
@@ -463,25 +542,57 @@ const renderTimeline = () => {
 };
 
 const renderIssues = () => {
-  const topIssues = siteData.govardhanTopIssues || [];
-  issueGrid.innerHTML = topIssues
+  const officialIssues = siteData.govardhanTopIssues || [];
+  const customIssues = latestVoteData
+    .filter((vote) => vote.issueKey?.startsWith("custom-"))
+    .map((vote) => ({
+      key: vote.issueKey,
+      title: vote.title,
+      description: "Citizen-submitted civic issue category from the live Govardhan board.",
+      custom: true,
+    }));
+  const deduped = [...officialIssues, ...customIssues].filter(
+    (issue, index, list) => list.findIndex((item) => item.key === issue.key) === index,
+  );
+
+  issueGrid.innerHTML =
+    deduped
     .map(
       (issue) => `
-        <article class="issue-card priority-card reveal" data-issue-key="${issue.key}" data-category="${issue.title}">
-          <span>Govardhan critical issue</span>
-          <strong>${issue.title}</strong>
-          <p>${issue.description}</p>
+        <article class="issue-card priority-card reveal ${issue.custom ? "custom-live-issue" : ""}" data-issue-key="${issue.key}" data-category="${escapeHtml(issue.title)}">
+          <span>${issue.custom ? "Citizen custom issue" : "Govardhan critical issue"}</span>
+          <strong>${escapeHtml(issue.title)}</strong>
+          <p>${escapeHtml(issue.description)}</p>
           <div class="vote-row">
-            <button class="vote-action" type="button" data-vote-key="${issue.key}" data-title="${issue.title}">Vote for this Issue</button>
+            <button class="vote-action" type="button" data-vote-key="${issue.key}" data-title="${escapeHtml(issue.title)}">Vote for this Issue</button>
             <b id="vote-count-${issue.key}">0 votes</b>
           </div>
           <div class="voter-feed" id="voter-feed-${issue.key}">No citizen votes yet.</div>
         </article>
       `,
     )
-    .join("");
+    .join("") +
+    `
+      <article class="issue-card custom-issue-card reveal" data-custom-issue="true">
+        <span>Citizen category</span>
+        <strong>+ Add/Submit a Custom Civic Issue</strong>
+        <p>If your problem is not listed, create a new issue category and cast the first vote.</p>
+      </article>
+    `;
   renderVotes();
 };
+
+const uniqueVoters = (voters = []) => {
+  const seen = new Set();
+  return voters.filter((voter) => {
+    if (!voter?.username || seen.has(voter.username)) return false;
+    seen.add(voter.username);
+    return true;
+  });
+};
+
+const currentUserHasVoted = () =>
+  Boolean(currentUser?.username && latestVoteData.some((vote) => uniqueVoters(vote.voters).some((voter) => voter.username === currentUser.username)));
 
 const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, selectedPin = siteData.defaultArea.pin) => {
   let filteredIssues = [];
@@ -492,8 +603,10 @@ const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, sele
     });
     filteredIssues = result.issues || [];
     latestVoteData = result.votes || [];
-    renderVotes();
+    renderIssues();
   } catch (error) {
+    if (feedGateNote) feedGateNote.hidden = true;
+    statusBoard.hidden = false;
     statusBoard.innerHTML = `
       <article class="status-item empty-state reveal">
         <span>Netlify database</span>
@@ -503,6 +616,16 @@ const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, sele
     `;
     return;
   }
+
+  if (!currentUserHasVoted()) {
+    statusBoard.hidden = true;
+    statusBoard.innerHTML = "";
+    if (feedGateNote) feedGateNote.hidden = false;
+    return;
+  }
+
+  if (feedGateNote) feedGateNote.hidden = true;
+  statusBoard.hidden = false;
 
   if (!filteredIssues.length) {
     statusBoard.innerHTML = `
@@ -535,15 +658,23 @@ const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, sele
 };
 
 const renderVotes = () => {
-  (siteData.govardhanTopIssues || []).forEach((issue) => {
-    const vote = latestVoteData.find((item) => item.issueKey === issue.key);
-    const countNode = document.querySelector(`#vote-count-${issue.key}`);
-    const feedNode = document.querySelector(`#voter-feed-${issue.key}`);
-    if (countNode) countNode.textContent = `${vote?.count || 0} votes`;
+  const renderedKeys = [...document.querySelectorAll("[data-issue-key]")].map((node) => node.dataset.issueKey);
+  renderedKeys.forEach((issueKey) => {
+    const vote = latestVoteData.find((item) => item.issueKey === issueKey);
+    const alreadyVoted = Boolean(currentUser?.username && uniqueVoters(vote?.voters).some((voter) => voter.username === currentUser.username));
+    const countNode = document.querySelector(`#vote-count-${issueKey}`);
+    const feedNode = document.querySelector(`#voter-feed-${issueKey}`);
+    const voteButton = document.querySelector(`[data-vote-key="${issueKey}"]`);
+    const voters = uniqueVoters(vote?.voters || []);
+    if (countNode) countNode.textContent = `${voters.length || vote?.count || 0} votes`;
+    if (voteButton) {
+      voteButton.disabled = alreadyVoted;
+      voteButton.textContent = alreadyVoted ? "Voted" : "Vote for this Issue";
+    }
     if (feedNode) {
-      const voters = (vote?.voters || []).slice(0, 4);
-      feedNode.innerHTML = voters.length
-        ? voters
+      const visibleVoters = voters.slice(0, 4);
+      feedNode.innerHTML = visibleVoters.length
+        ? visibleVoters
             .map(
               (voter) => `
                 <span class="voter-chip">
@@ -605,7 +736,8 @@ const voteForIssue = async ({ issueKey, title }) => {
   });
   latestVoteData = result.votes || latestVoteData;
   if (result.user) persistSession({ token: authToken, user: result.user });
-  renderVotes();
+  renderIssues();
+  await renderStatusBoard(context.area, context.pin);
 };
 
 const openOpinionBox = (category, user) => {
@@ -659,6 +791,74 @@ const openOpinionBox = (category, user) => {
       return;
     }
     close();
+  });
+};
+
+const slugifyIssue = (value) =>
+  `custom-${value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)}`;
+
+const openCustomIssueBox = (user) => {
+  const existing = document.querySelector(".opinion-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.className = "opinion-modal";
+  overlay.innerHTML = `
+    <form class="opinion-panel">
+      <button class="modal-close" type="button" aria-label="Close custom issue modal">×</button>
+      <span class="section-kicker">Custom civic issue</span>
+      <h3>Add a new Govardhan issue category</h3>
+      <p>Posting as <b>${escapeHtml(user.username)}</b>. The first submit also casts your vote.</p>
+      <input name="customTitle" type="text" maxlength="90" placeholder="Example: Drain overflow near bus stand" required />
+      <textarea name="customDescription" rows="4" placeholder="Short detail for this issue category..." required></textarea>
+      <div class="opinion-actions">
+        <button type="submit" class="primary-action">Add Issue + Vote</button>
+        <button type="button" class="ghost-action" data-cancel>Cancel</button>
+      </div>
+    </form>
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.classList.add("no-scroll");
+  overlay.querySelector("input")?.focus();
+
+  const close = () => {
+    overlay.remove();
+    document.body.classList.remove("no-scroll");
+  };
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay || event.target.closest(".modal-close") || event.target.closest("[data-cancel]")) close();
+  });
+
+  overlay.querySelector("form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = overlay.querySelector('[name="customTitle"]')?.value.trim();
+    if (!title) return;
+    const key = slugifyIssue(title);
+    const duplicate = [...(siteData.govardhanTopIssues || []), ...latestVoteData].some(
+      (issue) => issue.key === key || issue.issueKey === key || issue.title?.toLowerCase() === title.toLowerCase(),
+    );
+    if (duplicate) {
+      window.alert("Ye issue category already listed hai bhai. Us par vote kar do.");
+      return;
+    }
+    const submitButton = overlay.querySelector("button[type='submit']");
+    submitButton.disabled = true;
+    submitButton.textContent = "Adding...";
+    try {
+      await voteForIssue({ issueKey: key, title });
+      close();
+    } catch (error) {
+      submitButton.disabled = false;
+      submitButton.textContent = "Add Issue + Vote";
+      window.alert(error.message || "Custom issue add nahi ho paya.");
+    }
   });
 };
 
@@ -735,9 +935,10 @@ const renderAreaMedia = (areaName) => {
 const setDashboardVisible = (visible) => {
   showDashboard = visible;
   dashboardSections.forEach((section) => {
-    section.hidden = !visible;
+    section.hidden = !visible || (section === adminPanel && !isAdminUser());
     section.classList.toggle("dashboard-enter", visible);
   });
+  renderAdminPanel();
 };
 
 const setOpenBoardDisabled = (disabled) => {
@@ -864,6 +1065,31 @@ accountButton?.addEventListener("click", () => {
   openAccountModal();
 });
 profileLogout?.addEventListener("click", () => logoutUser());
+adminRefresh?.addEventListener("click", () => renderAdminPanel());
+adminPanel?.addEventListener("click", async (event) => {
+  const deleteButton = event.target.closest("[data-admin-delete-user]");
+  const purgeButton = event.target.closest("[data-admin-purge-post]");
+  try {
+    if (deleteButton) {
+      const username = deleteButton.dataset.adminDeleteUser;
+      if (!window.confirm(`Delete @${username} account from live database?`)) return;
+      deleteButton.disabled = true;
+      await deleteAdminUser(username);
+      await renderAdminPanel();
+      return;
+    }
+    if (purgeButton) {
+      const issueId = purgeButton.dataset.adminPurgePost;
+      if (!window.confirm("Purge this citizen post from live feed?")) return;
+      purgeButton.disabled = true;
+      await purgePost(issueId);
+      await renderStatusBoard(selectedIssueContext().area, selectedIssueContext().pin);
+      await renderAdminPanel();
+    }
+  } catch (error) {
+    if (adminStatus) adminStatus.textContent = error.message || "Admin action failed.";
+  }
+});
 document.addEventListener("click", (event) => {
   if (!profileMenu || profileMenu.hidden) return;
   if (accountShell?.contains(event.target)) return;
@@ -922,13 +1148,19 @@ quickAccountForm?.addEventListener("submit", async (event) => {
 });
 
 issueGrid.addEventListener("click", (event) => {
+  const customCard = event.target.closest("[data-custom-issue]");
   const voteButton = event.target.closest("[data-vote-key]");
   const user = loadCurrentUser();
   if (!user) {
     openAccountModal();
     return;
   }
+  if (customCard) {
+    openCustomIssueBox(user);
+    return;
+  }
   if (voteButton) {
+    if (voteButton.disabled) return;
     voteButton.disabled = true;
     voteButton.textContent = "Voting...";
     voteForIssue({
