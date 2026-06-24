@@ -65,7 +65,9 @@ const verifyToken = (token = "") => {
 
 const publicUser = (user) => ({
   username: user.username,
+  displayName: user.displayName || user.username,
   avatar: user.avatar || "",
+  avatarZoom: user.avatarZoom || 1,
   totalVotes: user.totalVotes || 0,
   totalOpinions: user.totalOpinions || 0,
   createdAt: user.createdAt,
@@ -145,6 +147,23 @@ const authHandler = async (request) => {
     return json(200, { ok: true, user: publicUser(updated) });
   }
 
+  if (payload.action === "updateProfile") {
+    const authHeader = request.headers.get("authorization") || "";
+    const session = verifyToken(authHeader.replace(/^Bearer\s+/i, ""));
+    if (!session?.username) return json(401, { ok: false, message: "Login required." });
+
+    const key = `user:${session.username}`;
+    const existingRaw = await users.get(key);
+    const existingUser = existingRaw ? JSON.parse(existingRaw) : null;
+    if (!existingUser) return json(404, { ok: false, message: "Account not found." });
+
+    const displayName = payload.displayName?.toString().trim().slice(0, 40) || existingUser.username;
+    const avatarZoom = Math.min(Math.max(Number(payload.avatarZoom || existingUser.avatarZoom || 1), 1), 1.8);
+    const updated = { ...existingUser, displayName, avatarZoom, updatedAt: new Date().toISOString() };
+    await users.set(key, JSON.stringify(updated));
+    return json(200, { ok: true, user: publicUser(updated) });
+  }
+
   const username = normalizeUsername(payload.username);
   const password = payload.password?.toString() || "";
 
@@ -180,9 +199,11 @@ const authHandler = async (request) => {
   const salt = crypto.randomBytes(16).toString("hex");
   const newUser = {
     username,
+    displayName: username,
     salt,
     passwordHash: hashPassword(password, salt),
     avatar: "",
+    avatarZoom: 1,
     totalVotes: 0,
     totalOpinions: 0,
     createdAt: now,

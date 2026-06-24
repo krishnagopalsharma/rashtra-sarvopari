@@ -48,11 +48,15 @@ const accountButtonAvatar = document.querySelector("#accountButtonAvatar");
 const accountShell = document.querySelector(".account-shell");
 const profileMenu = document.querySelector("#profileMenu");
 const profileUsername = document.querySelector("#profileUsername");
+const profileDisplayName = document.querySelector("#profileDisplayName");
 const profileAvatar = document.querySelector("#profileAvatar");
 const profileVotes = document.querySelector("#profileVotes");
 const profileOpinions = document.querySelector("#profileOpinions");
 const avatarInput = document.querySelector("#avatarInput");
 const avatarUploadLabel = document.querySelector("#avatarUploadLabel");
+const displayNameInput = document.querySelector("#displayNameInput");
+const avatarZoomInput = document.querySelector("#avatarZoomInput");
+const profileSave = document.querySelector("#profileSave");
 const profileLogout = document.querySelector("#profileLogout");
 const accountModal = document.querySelector("#accountModal");
 const accountModalClose = document.querySelector("#accountModalClose");
@@ -64,6 +68,13 @@ const adminRefresh = document.querySelector("#adminRefresh");
 const adminStatus = document.querySelector("#adminStatus");
 const adminUsersGrid = document.querySelector("#adminUsersGrid");
 const adminPostsGrid = document.querySelector("#adminPostsGrid");
+const legalModal = document.querySelector("#legalModal");
+const legalClose = document.querySelector("#legalClose");
+const legalTitle = document.querySelector("#legalTitle");
+const legalKicker = document.querySelector("#legalKicker");
+const legalBody = document.querySelector("#legalBody");
+const customCategoryField = document.querySelector("#customCategoryField");
+const customCategoryInput = slideReportForm?.querySelector('[name="customCategory"]');
 
 let currentLanguage = "en";
 let showDashboard = false;
@@ -71,6 +82,7 @@ let verifiedNetaUnlocked = localStorage.getItem("rashtraVerifiedNeta") === "true
 let currentUser = null;
 let latestVoteData = [];
 let revealObserver = null;
+let currentHistoryView = "lokSabha";
 
 const t = (key) => siteData.language[currentLanguage]?.[key] || siteData.language.en[key] || key;
 const translateStatus = (status) => siteData.language[currentLanguage]?.status?.[status] || status;
@@ -91,6 +103,11 @@ const readJson = (key, fallback) => {
 
 const writeJson = (key, value) => {
   localStorage.setItem(key, JSON.stringify(value));
+};
+
+const avatarStyle = (user = {}) => {
+  const zoom = Number(user.avatarZoom || 1);
+  return `transform: scale(${Math.min(Math.max(zoom, 1), 1.8)});`;
 };
 
 const apiRequest = async (path, options = {}) => {
@@ -122,7 +139,7 @@ const updateAccountButton = () => {
   accountButton.title = label;
   if (accountButtonAvatar) {
     accountButtonAvatar.innerHTML = currentUser?.avatar
-      ? `<img src="${currentUser.avatar}" alt="${escapeHtml(currentUser.username)} avatar" />`
+      ? `<img src="${currentUser.avatar}" alt="${escapeHtml(currentUser.username)} avatar" style="${avatarStyle(currentUser)}" />`
       : currentUser?.username
         ? escapeHtml(currentUser.username.slice(0, 2).toUpperCase())
         : "RS";
@@ -172,6 +189,12 @@ const updateAvatar = (avatar) =>
   apiRequest("/.netlify/functions/auth", {
     method: "POST",
     body: JSON.stringify({ action: "updateAvatar", avatar }),
+  });
+
+const updateProfile = (profile) =>
+  apiRequest("/.netlify/functions/auth", {
+    method: "POST",
+    body: JSON.stringify({ action: "updateProfile", ...profile }),
   });
 
 const isAdminUser = () => currentUser?.username === "krishnagopalsharma";
@@ -246,12 +269,16 @@ const renderProfileMenu = () => {
     profileMenu.hidden = true;
     return;
   }
+  const displayName = currentUser.displayName || currentUser.username;
+  if (profileDisplayName) profileDisplayName.textContent = displayName;
   profileUsername.textContent = `@${currentUser.username}`;
+  if (displayNameInput) displayNameInput.value = displayName;
+  if (avatarZoomInput) avatarZoomInput.value = currentUser.avatarZoom || 1;
   profileVotes.textContent = currentUser.totalVotes || 0;
   profileOpinions.textContent = currentUser.totalOpinions || 0;
   if (avatarUploadLabel) avatarUploadLabel.textContent = currentUser.avatar ? "Update Avatar" : "Add Profile Photo";
   if (currentUser.avatar) {
-    profileAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="${currentUser.username} avatar" />`;
+    profileAvatar.innerHTML = `<img src="${currentUser.avatar}" alt="${currentUser.username} avatar" style="${avatarStyle(currentUser)}" />`;
   } else {
     profileAvatar.textContent = currentUser.username.slice(0, 2).toUpperCase();
   }
@@ -489,18 +516,27 @@ const renderCategoryOptions = () => {
   if (!selects.length) return;
   const options = siteData.issueCategories
     .map((category) => `<option value="${category}">${translateCategory(category)}</option>`)
-    .join("");
+    .join("") +
+    `<option value="__custom__">Other / Add custom category</option>`;
   selects.forEach((select) => {
     const selectedValue = select.value;
     select.innerHTML = options;
     if (selectedValue) select.value = selectedValue;
   });
+  toggleCustomCategory();
+};
+
+const toggleCustomCategory = () => {
+  const categorySelect = slideReportForm?.querySelector('[name="category"]');
+  const isCustom = categorySelect?.value === "__custom__";
+  if (customCategoryField) customCategoryField.hidden = !isCustom;
+  if (customCategoryInput) customCategoryInput.required = Boolean(isCustom);
 };
 
 const renderAssembly = () => {
   const govardhanSeat =
     siteData.assemblySeats.find((seat) => seat.name === mvpRegion.focus) || siteData.assemblySeats[0];
-  const affidavit = siteData.govardhanAffidavit;
+  const recentHistory = siteData.govardhanAssemblyHistory || [];
 
   assemblyList.innerHTML = `
     <div class="representative-hierarchy reveal">
@@ -512,12 +548,16 @@ const renderAssembly = () => {
         <p class="leader-name">${govardhanSeat.mla}</p>
         <p>${govardhanSeat.party} | ${govardhanSeat.note}</p>
         <p>${govardhanSeat.detail}</p>
-        <div class="affidavit-tabs" role="tablist" aria-label="Govardhan MLA details">
-          <button type="button" class="affidavit-tab is-active" data-tab="summary">Affidavit Summary</button>
-          <button type="button" class="affidavit-tab" data-tab="assets">Asset Details</button>
-          <button type="button" class="affidavit-tab" data-tab="contact">Public Contact</button>
+        <div class="mla-history-mini" aria-label="Recent Govardhan Assembly history">
+          ${recentHistory
+            .slice(0, 3)
+            .map(
+              (item) => `
+                <span><b>${item.year}</b> ${item.winner} (${item.party})</span>
+              `,
+            )
+            .join("")}
         </div>
-        <div class="affidavit-panel" id="affidavitPanel">${affidavit.summary}</div>
         <div class="mla-official-links">
           <a class="mla-link mla-link-green" href="https://mlaladsup.in/" target="_blank" rel="noopener noreferrer">MLA Work Record (Govt. Web)</a>
           <a class="mla-link mla-link-orange" href="https://www.myneta.info/uttarpradesh2022/candidate.php?candidate_id=68" target="_blank" rel="noopener noreferrer">Check Official Affidavit (Govt. Verified)</a>
@@ -527,18 +567,29 @@ const renderAssembly = () => {
   `;
 };
 const renderTimeline = () => {
-  winnerTimeline.innerHTML = siteData.lokSabha.winners
+  const isAssembly = currentHistoryView === "assembly";
+  const items = isAssembly ? siteData.govardhanAssemblyHistory : siteData.lokSabha.winners;
+  const label = isAssembly ? "Govardhan Assembly result" : t("lokSabhaResult");
+  winnerTimeline.innerHTML = `
+    <div class="history-tabs" role="tablist" aria-label="Political history view">
+      <button type="button" class="${!isAssembly ? "is-active" : ""}" data-history-view="lokSabha">Mathura Lok Sabha</button>
+      <button type="button" class="${isAssembly ? "is-active" : ""}" data-history-view="assembly">Govardhan Assembly</button>
+    </div>
+    <div class="history-card-grid">
+      ${items
     .map(
       (item) => `
         <article class="timeline-item reveal">
-          <span>${t("lokSabhaResult")}</span>
+          <span>${label}</span>
           <strong>${item.year}</strong>
           <h3>${item.winner}</h3>
           <p>${item.party} | ${item.note}</p>
         </article>
       `,
     )
-    .join("");
+    .join("")}
+    </div>
+  `;
 };
 
 const renderIssues = () => {
@@ -580,6 +631,7 @@ const renderIssues = () => {
       </article>
     `;
   renderVotes();
+  window.requestAnimationFrame(() => setupReveal());
 };
 
 const uniqueVoters = (voters = []) => {
@@ -904,12 +956,6 @@ const renderAreaMedia = (areaName) => {
           <strong>${siteData.areaOptions.find((area) => area.name === areaName)?.pin || "Queued"}</strong>
           <p>Used as primary issue filter.</p>
         </article>
-        <article class="map-tile map-metric">
-          <img class="govardhan-photo-tile" src="assets/kusum-sarovar-preview.png" alt="Kusum Sarovar Govardhan" />
-          <span>Govardhan ground reference</span>
-          <strong>Kusum Sarovar node</strong>
-          <p>Photo reference for local civic reports around the Govardhan area.</p>
-        </article>
       </div>
     `;
   } else {
@@ -1115,6 +1161,36 @@ avatarInput?.addEventListener("change", async () => {
     avatarInput.value = "";
   }
 });
+
+avatarZoomInput?.addEventListener("input", () => {
+  if (!currentUser?.avatar) return;
+  currentUser.avatarZoom = Number(avatarZoomInput.value);
+  renderProfileMenu();
+  updateAccountButton();
+});
+
+profileSave?.addEventListener("click", async () => {
+  if (!currentUser) return;
+  profileSave.disabled = true;
+  const original = profileSave.textContent;
+  profileSave.textContent = "Saving...";
+  try {
+    const result = await updateProfile({
+      displayName: displayNameInput?.value || currentUser.username,
+      avatarZoom: Number(avatarZoomInput?.value || currentUser.avatarZoom || 1),
+    });
+    persistSession({ token: authToken, user: result.user });
+    profileSave.textContent = "Saved";
+  } catch (error) {
+    window.alert(error.message || "Profile save failed.");
+    profileSave.textContent = original;
+  } finally {
+    window.setTimeout(() => {
+      profileSave.textContent = original;
+      profileSave.disabled = false;
+    }, 900);
+  }
+});
 accountModalClose?.addEventListener("click", closeAccountModal);
 accountModal?.addEventListener("click", (event) => {
   if (event.target === accountModal) closeAccountModal();
@@ -1184,7 +1260,7 @@ const syncArea = (areaName) => {
   reportArea.value = selected.name;
   pinInput.value = selected.pin;
   areaViewTitle.textContent = `${selected.name} ${t("dashboardSuffix")}`;
-  heritageTitle.textContent = `${selected.name} ${t("photoGallerySuffix")}`;
+  heritageTitle.textContent = `${selected.name} Citizen Report`;
   syncPoliticalHistoryTitle();
   filterNote.textContent = `${t("filterNotePrefix")} ${selected.name} ${t("filterNoteMiddle")} ${selected.pin} ${t("filterNoteSuffix")}`;
   renderAreaMedia(selected.name);
@@ -1356,7 +1432,9 @@ slideReportForm?.addEventListener("submit", async (event) => {
   const button = slideReportForm.querySelector("button[type='submit']");
   const original = button.textContent;
   const formData = new FormData(slideReportForm);
-  const category = formData.get("category")?.toString() || "Local Issue";
+  const selectedCategory = formData.get("category")?.toString() || "Local Issue";
+  const customCategory = formData.get("customCategory")?.toString().trim();
+  const category = selectedCategory === "__custom__" ? customCategory || "Other civic issue" : selectedCategory;
   const description = formData.get("description")?.toString().trim() || "";
   const photoFile = slideReportForm.querySelector('[name="photoProof"]')?.files?.[0];
 
@@ -1379,6 +1457,8 @@ slideReportForm?.addEventListener("submit", async (event) => {
   }
 });
 
+slideReportForm?.querySelector('[name="category"]')?.addEventListener("change", toggleCustomCategory);
+
 const openLightbox = (card) => {
   if (!galleryLightbox || !lightboxImage || !lightboxTitle || !lightboxDescription) return;
   lightboxImage.src = card.dataset.src;
@@ -1396,6 +1476,23 @@ const closeLightbox = () => {
   document.body.classList.remove("no-scroll");
 };
 
+const openLegalModal = (key) => {
+  const page = siteData.legalPages?.[key];
+  if (!page || !legalModal || !legalTitle || !legalBody) return;
+  legalTitle.textContent = page.title;
+  if (legalKicker) legalKicker.textContent = page.kicker || "Platform information";
+  legalBody.innerHTML = page.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("");
+  legalModal.hidden = false;
+  document.body.classList.add("no-scroll");
+  legalClose?.focus();
+};
+
+const closeLegalModal = () => {
+  if (!legalModal) return;
+  legalModal.hidden = true;
+  document.body.classList.remove("no-scroll");
+};
+
 areaGallery?.addEventListener("click", (event) => {
   const card = event.target.closest(".gallery-card");
   if (card) openLightbox(card);
@@ -1409,12 +1506,28 @@ areaGallery?.addEventListener("keydown", (event) => {
   openLightbox(card);
 });
 
+winnerTimeline?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-view]");
+  if (!button) return;
+  currentHistoryView = button.dataset.historyView;
+  renderTimeline();
+  setupReveal();
+});
+
 lightboxClose?.addEventListener("click", closeLightbox);
 galleryLightbox?.addEventListener("click", (event) => {
   if (event.target === galleryLightbox) closeLightbox();
 });
+document.querySelectorAll("[data-legal]").forEach((button) => {
+  button.addEventListener("click", () => openLegalModal(button.dataset.legal));
+});
+legalClose?.addEventListener("click", closeLegalModal);
+legalModal?.addEventListener("click", (event) => {
+  if (event.target === legalModal) closeLegalModal();
+});
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && galleryLightbox && !galleryLightbox.hidden) closeLightbox();
+  if (event.key === "Escape" && legalModal && !legalModal.hidden) closeLegalModal();
 });
 
 assemblyList.addEventListener("click", (event) => {
@@ -1480,19 +1593,26 @@ const setupReveal = () => {
     )
     .forEach((node) => node.classList.add("reveal"));
 
-  const observer = new IntersectionObserver(
+  if (!("IntersectionObserver" in window)) {
+    document.querySelectorAll(".reveal").forEach((node) => node.classList.add("is-visible"));
+    return;
+  }
+
+  if (!revealObserver) {
+    revealObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           entry.target.classList.add("is-visible");
-          observer.unobserve(entry.target);
+            revealObserver.unobserve(entry.target);
         }
       });
     },
     { threshold: 0.16 },
   );
+  }
 
-  document.querySelectorAll(".reveal").forEach((node) => observer.observe(node));
+  document.querySelectorAll(".reveal:not(.is-visible)").forEach((node) => revealObserver.observe(node));
 };
 
 renderAreaOptions();

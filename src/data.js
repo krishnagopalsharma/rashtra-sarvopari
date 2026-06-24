@@ -132,6 +132,26 @@ export const siteData = {
     contact:
       "Public contact and grievance routing should use verified government or representative office channels for Govardhan, pin 281502.",
   },
+  govardhanAssemblyHistory: [
+    {
+      year: "2022",
+      winner: "Meghshyam Singh",
+      party: "BJP",
+      note: "Current Govardhan MLA. BJP changed the ticket after 2017 and Meghshyam Singh won the seat.",
+    },
+    {
+      year: "2017",
+      winner: "Karinda Singh",
+      party: "BJP",
+      note: "BJP won Govardhan Assembly constituency before the 2022 ticket change.",
+    },
+    {
+      year: "2012",
+      winner: "Rajkumar Rawat",
+      party: "BSP",
+      note: "BSP held the seat before the BJP wins of 2017 and 2022.",
+    },
+  ],
   areaMedia: {
     Mathura: {
       map: {
@@ -305,6 +325,44 @@ export const siteData = {
     "Sanitation",
     "Sewer",
   ],
+  legalPages: {
+    about: {
+      title: "About Rashtra Sarvopari",
+      kicker: "Non-profit civic platform",
+      paragraphs: [
+        "Rashtra Sarvopari is a public-interest civic dashboard created to help citizens understand their local area, representatives, public issues, and development follow-up in a simple and transparent way.",
+        "The platform is currently focused on the Govardhan, Mathura MVP node. Political and public-reference information is compiled from publicly available government, election, and official/public sources wherever possible.",
+        "This website is not a political party, government department, or paid campaign. It is a non-profit civic technology initiative designed and developed by Krishna Gopal Sharma for public awareness and local participation.",
+      ],
+    },
+    terms: {
+      title: "Terms & Conditions",
+      kicker: "Use responsibly",
+      paragraphs: [
+        "By using this platform, users agree to submit only civic, factual, and community-relevant information. Do not upload abusive, misleading, illegal, or private personal data about any person.",
+        "Citizen reports, votes, and uploaded photos may be moderated or removed if they are spam, defamatory, unrelated, unsafe, or not useful for public civic tracking.",
+        "The platform provides informational dashboards and public reporting tools. It does not guarantee official action, government response, or legal remedy for any issue submitted by a user.",
+      ],
+    },
+    privacy: {
+      title: "Privacy Policy",
+      kicker: "Minimal account data",
+      paragraphs: [
+        "For citizen access, the platform stores a username, password hash, optional display name, optional profile photo, votes, and submitted opinions. Passwords are not stored as plain text.",
+        "Issue reports may include text and optional photo proof uploaded by the user. Users should avoid uploading private documents, personal addresses, phone numbers, or sensitive identity information.",
+        "Data may be stored through Netlify Functions and Netlify Blobs for the live website. Admin moderation access is reserved for the platform owner to protect the quality and safety of the public feed.",
+      ],
+    },
+    disclaimer: {
+      title: "Disclaimer",
+      kicker: "Public-source information",
+      paragraphs: [
+        "Rashtra Sarvopari is an independent, non-profit civic information platform. It is not an official government website and is not affiliated with any government department, election body, or political party.",
+        "Representative details, election references, public records, and external links are shown for awareness. Users should verify final official information directly from government websites, Election Commission sources, affidavit portals, or official representative channels.",
+        "Citizen-submitted reports and votes represent public opinion and may require verification. The platform owner may correct, update, moderate, or remove content to reduce misinformation and misuse.",
+      ],
+    },
+  },
   issueReports: [],
   affidavitFields: ["Education", "Assets", "Land/property", "Criminal cases", "Source affidavit"],
   language: {
