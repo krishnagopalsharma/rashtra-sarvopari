@@ -153,20 +153,6 @@ export const siteData = {
     },
   ],
   areaMedia: {
-    Mathura: {
-      map: {
-        src: "assets/mathura-satellite-map.png",
-        alt: "Mathura satellite map",
-        imageDate: "01/11/2025",
-      },
-    },
-    Vrindavan: {
-      map: {
-        src: "assets/vrindavan-satellite-map.png",
-        alt: "Vrindavan satellite map",
-        imageDate: "01/11/2025",
-      },
-    },
     Govardhan: {
       map: {
         src: "assets/govardhan-satellite-map.png",
@@ -200,27 +186,6 @@ export const siteData = {
           description: "Night heritage atmosphere around the Mansi Ganga and Danghati belt for gallery preview.",
         },
       ],
-    },
-    Chhata: {
-      map: {
-        src: "assets/chhata-satellite-map.png",
-        alt: "Chhata satellite map",
-        imageDate: "09/05/2025",
-      },
-    },
-    Mant: {
-      map: {
-        src: "assets/mant-satellite-map.png",
-        alt: "Mant satellite map",
-        imageDate: "01/11/2025",
-      },
-    },
-    Baldeo: {
-      map: {
-        src: "assets/baldeo-satellite-map.png",
-        alt: "Baldeo satellite map",
-        imageDate: "23/02/2024",
-      },
     },
   },
   lokSabha: {

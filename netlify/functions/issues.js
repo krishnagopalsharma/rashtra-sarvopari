@@ -70,6 +70,23 @@ const readUser = async (users, username) => {
 
 const writeUser = (users, user) => users.set(`user:${user.username}`, JSON.stringify(user));
 
+const decrementVoteTotals = async (users, voters = []) => {
+  const voteCounts = voters.reduce((counts, voter) => {
+    if (!voter?.username) return counts;
+    counts.set(voter.username, (counts.get(voter.username) || 0) + 1);
+    return counts;
+  }, new Map());
+  await Promise.all(
+    [...voteCounts.entries()].map(async ([username, count]) => {
+      const user = await readUser(users, username);
+      if (!user) return;
+      user.totalVotes = Math.max(0, (user.totalVotes || 0) - count);
+      user.updatedAt = new Date().toISOString();
+      await writeUser(users, user);
+    }),
+  );
+};
+
 const requireAdmin = (request) => {
   const authHeader = request.headers.get("authorization") || "";
   const session = verifyToken(authHeader.replace(/^Bearer\s+/i, ""));
@@ -169,6 +186,51 @@ const issuesHandler = async (request) => {
     return json(200, { ok: true, removed: issueId, issues: filtered });
   }
 
+  if (payload.action === "removeVote") {
+    if (!requireAdmin(request)) return json(403, { ok: false, message: "Admin access required." });
+    const area = payload.area?.toString().trim() || "Govardhan";
+    const issueKey = payload.issueKey?.toString().trim();
+    const username = payload.username?.toString().trim();
+    if (!issueKey || !username) return json(400, { ok: false, message: "Vote details missing." });
+
+    const key = `votes:${areaKey(area)}`;
+    const votes = await readIssues(store, key);
+    const removedVoters = [];
+    const updated = votes
+      .map((vote) => {
+        if (vote.issueKey !== issueKey) return vote;
+        const voters = uniqueVoters(vote.voters || []);
+        removedVoters.push(...voters.filter((voter) => voter.username === username));
+        const keptVoters = voters.filter((voter) => voter.username !== username);
+        return { ...vote, voters: keptVoters, count: keptVoters.length };
+      })
+      .filter((vote) => (vote.voters || []).length > 0);
+
+    await Promise.all([store.set(key, JSON.stringify(updated)), decrementVoteTotals(users, removedVoters)]);
+    return json(200, { ok: true, votes: updated });
+  }
+
+  if (payload.action === "clearVotes") {
+    if (!requireAdmin(request)) return json(403, { ok: false, message: "Admin access required." });
+    const area = payload.area?.toString().trim() || "Govardhan";
+    const issueKey = payload.issueKey?.toString().trim();
+    const key = `votes:${areaKey(area)}`;
+    const votes = await readIssues(store, key);
+
+    if (!issueKey) {
+      const removedVoters = votes.flatMap((vote) => uniqueVoters(vote.voters || []));
+      await Promise.all([store.set(key, JSON.stringify([])), decrementVoteTotals(users, removedVoters)]);
+      return json(200, { ok: true, votes: [] });
+    }
+
+    const removedVoters = votes
+      .filter((vote) => vote.issueKey === issueKey)
+      .flatMap((vote) => uniqueVoters(vote.voters || []));
+    const updated = votes.filter((vote) => vote.issueKey !== issueKey);
+    await Promise.all([store.set(key, JSON.stringify(updated)), decrementVoteTotals(users, removedVoters)]);
+    return json(200, { ok: true, votes: updated });
+  }
+
   const category = payload.category?.toString().trim() || "Local Issue";
   const text = payload.text?.toString().trim() || "";
   const area = payload.area?.toString().trim() || "Govardhan";
@@ -176,7 +238,7 @@ const issuesHandler = async (request) => {
   const photo = payload.photo || null;
 
   if (text.length < 4) {
-    return json(400, { ok: false, message: "Issue detail thoda clearly likho." });
+    return json(400, { ok: false, message: "Please write the issue details clearly." });
   }
 
   if (photo?.dataUrl && (!photo.dataUrl.startsWith("data:image/") || photo.dataUrl.length > 1800000)) {

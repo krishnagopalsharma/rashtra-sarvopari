@@ -124,6 +124,21 @@ const authHandler = async (request) => {
     return json(200, { ok: true, deleted: username });
   }
 
+  if (payload.action === "publicProfile") {
+    const username = normalizeUsername(payload.username);
+    if (!username) return json(400, { ok: false, message: "Username missing." });
+    const raw = await users.get(`user:${username}`);
+    if (!raw) return json(404, { ok: false, message: "Profile not found." });
+    return json(200, {
+      ok: true,
+      user: {
+        ...publicUser(JSON.parse(raw)),
+        role: username === "krishnagopalsharma" ? "Admin" : "Citizen",
+        verified: username === "krishnagopalsharma",
+      },
+    });
+  }
+
   if (payload.action === "updateAvatar") {
     const authHeader = request.headers.get("authorization") || "";
     const session = verifyToken(authHeader.replace(/^Bearer\s+/i, ""));
@@ -138,7 +153,7 @@ const authHandler = async (request) => {
     if (avatar && !avatar.startsWith("data:image/")) {
       return json(400, { ok: false, message: "Only image avatars are allowed." });
     }
-    if (avatar.length > 650000) {
+    if (avatar.length > 1200000) {
       return json(400, { ok: false, message: "Avatar image is too large. Please choose a smaller photo." });
     }
 
@@ -168,11 +183,11 @@ const authHandler = async (request) => {
   const password = payload.password?.toString() || "";
 
   if (username.length < 3) {
-    return json(400, { ok: false, message: "Username minimum 3 characters ka hona chahiye." });
+    return json(400, { ok: false, message: "Username must be at least 3 characters." });
   }
 
   if (password.length < 6) {
-    return json(400, { ok: false, message: "Password minimum 6 characters ka hona chahiye." });
+    return json(400, { ok: false, message: "Password must be at least 6 characters." });
   }
 
   const key = `user:${username}`;

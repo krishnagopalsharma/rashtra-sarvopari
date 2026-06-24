@@ -134,6 +134,7 @@ const apiRequest = async (path, options = {}) => {
 
 const updateAccountButton = () => {
   accountButton?.classList.toggle("is-logged-in", Boolean(currentUser));
+  accountButton?.classList.toggle("is-guest", !currentUser);
   if (!accountButton) return;
   const label = currentUser ? `@${currentUser.username}` : "Login";
   accountButton.title = label;
@@ -142,7 +143,7 @@ const updateAccountButton = () => {
       ? `<img src="${currentUser.avatar}" alt="${escapeHtml(currentUser.username)} avatar" style="${avatarStyle(currentUser)}" />`
       : currentUser?.username
         ? escapeHtml(currentUser.username.slice(0, 2).toUpperCase())
-        : "RS";
+        : "Login";
   }
   accountButton.setAttribute(
     "aria-label",
@@ -197,6 +198,12 @@ const updateProfile = (profile) =>
     body: JSON.stringify({ action: "updateProfile", ...profile }),
   });
 
+const fetchPublicProfile = (username) =>
+  apiRequest("/.netlify/functions/auth", {
+    method: "POST",
+    body: JSON.stringify({ action: "publicProfile", username }),
+  });
+
 const isAdminUser = () => currentUser?.username === "krishnagopalsharma";
 
 const fetchAdminData = () =>
@@ -217,6 +224,24 @@ const purgePost = (issueId) =>
     body: JSON.stringify({ action: "purgePost", issueId, area: selectedIssueContext().area }),
   });
 
+const removeVote = ({ issueKey, username }) =>
+  apiRequest("/.netlify/functions/issues", {
+    method: "POST",
+    body: JSON.stringify({ action: "removeVote", issueKey, username, area: selectedIssueContext().area }),
+  });
+
+const clearIssueVotes = (issueKey) =>
+  apiRequest("/.netlify/functions/issues", {
+    method: "POST",
+    body: JSON.stringify({ action: "clearVotes", issueKey, area: selectedIssueContext().area }),
+  });
+
+const clearAllVotes = () =>
+  apiRequest("/.netlify/functions/issues", {
+    method: "POST",
+    body: JSON.stringify({ action: "clearVotes", area: selectedIssueContext().area }),
+  });
+
 const renderAdminPanel = async () => {
   if (!adminPanel) return;
   const visible = showDashboard && isAdminUser();
@@ -225,14 +250,17 @@ const renderAdminPanel = async () => {
   if (adminStatus) adminStatus.textContent = "Loading live database...";
   try {
     const data = await fetchAdminData();
-    const issues = await loadCitizenIssues(selectedIssueContext().area);
+    const context = selectedIssueContext();
+    const issuePayload = await loadCitizenIssues(context.area);
+    const issues = issuePayload.issues || [];
+    const votes = issuePayload.votes || [];
     if (adminUsersGrid) {
       adminUsersGrid.innerHTML = (data.users || [])
         .map(
           (user) => `
             <article class="admin-row">
               <div>
-                <strong>@${escapeHtml(user.username)}</strong>
+                <strong><button class="profile-link" type="button" data-profile-username="${escapeHtml(user.username)}">@${escapeHtml(user.username)}</button>${user.username === "krishnagopalsharma" ? ' <span class="verified-tick" title="Verified admin">✓</span> <em class="admin-label">Admin</em>' : ""}</strong>
                 <span>${user.totalVotes || 0} votes | ${user.totalOpinions || 0} opinions</span>
               </div>
               <button class="danger-action" type="button" data-admin-delete-user="${escapeHtml(user.username)}"${user.username === "krishnagopalsharma" ? " disabled" : ""}>Delete User Account</button>
@@ -242,20 +270,48 @@ const renderAdminPanel = async () => {
         .join("") || `<article class="admin-row"><span>No users found.</span></article>`;
     }
     if (adminPostsGrid) {
-      adminPostsGrid.innerHTML = issues
+      const postMarkup = issues
         .map(
           (issue) => `
             <article class="admin-row">
               <div>
                 <strong>${escapeHtml(issue.category)}</strong>
-                <span>@${escapeHtml(issue.username || "citizen")} | ${escapeHtml(issue.pincode || "")}</span>
+                <span><button class="profile-link" type="button" data-profile-username="${escapeHtml(issue.username || "citizen")}">@${escapeHtml(issue.username || "citizen")}</button> | ${escapeHtml(issue.pincode || "")}</span>
                 <p>${escapeHtml(issue.text || "")}</p>
               </div>
               <button class="danger-action" type="button" data-admin-purge-post="${escapeHtml(issue.id)}">Purge Post</button>
             </article>
           `,
         )
-        .join("") || `<article class="admin-row"><span>No citizen posts yet.</span></article>`;
+        .join("");
+      const voteMarkup =
+        votes
+          .map((vote) => {
+            const voters = uniqueVoters(vote.voters || []);
+            return `
+              <article class="admin-row admin-vote-row">
+                <div>
+                  <strong>${escapeHtml(vote.title || vote.issueKey)}</strong>
+                  <span>${voters.length || vote.count || 0} vote records</span>
+                  <p>${voters.map((voter) => `@${escapeHtml(voter.username)}`).join(", ") || "No voters listed."}</p>
+                </div>
+                <button class="danger-action" type="button" data-admin-clear-issue-votes="${escapeHtml(vote.issueKey)}">Clear Votes</button>
+              </article>
+            `;
+          })
+          .join("") || "";
+      adminPostsGrid.innerHTML =
+        `
+          <article class="admin-row">
+            <div>
+              <strong>Vote moderation</strong>
+              <span>Clear old or accidental vote records for the selected area.</span>
+            </div>
+            <button class="danger-action" type="button" data-admin-clear-all-votes>Clear All Votes</button>
+          </article>
+        ` +
+        (postMarkup || `<article class="admin-row"><span>No citizen posts yet.</span></article>`) +
+        voteMarkup;
     }
     if (adminStatus) adminStatus.textContent = "Admin data synced.";
   } catch (error) {
@@ -271,7 +327,7 @@ const renderProfileMenu = () => {
   }
   const displayName = currentUser.displayName || currentUser.username;
   if (profileDisplayName) profileDisplayName.textContent = displayName;
-  profileUsername.textContent = `@${currentUser.username}`;
+  profileUsername.innerHTML = `@${escapeHtml(currentUser.username)}${isAdminUser() ? ' <span class="verified-tick" title="Verified admin">✓</span> <em class="admin-label">Admin</em>' : ""}`;
   if (displayNameInput) displayNameInput.value = displayName;
   if (avatarZoomInput) avatarZoomInput.value = currentUser.avatarZoom || 1;
   profileVotes.textContent = currentUser.totalVotes || 0;
@@ -290,7 +346,7 @@ const validateUsernameValue = (username) => {
     return {
       ok: false,
       username: clean,
-      message: "Username me sirf lowercase letters, numbers, underscore (_) aur period (.) allowed hain.",
+      message: "Use only lowercase letters, numbers, underscores, and periods.",
     };
   }
   return { ok: true, username: clean };
@@ -301,7 +357,7 @@ const loadCitizenIssues = async (area) => {
   const result = await apiRequest(`/.netlify/functions/issues?${params.toString()}`, {
     method: "GET",
   });
-  return result.issues || [];
+  return result;
 };
 
 const selectedIssueContext = () => {
@@ -345,6 +401,47 @@ const readImageAsDataUrl = (file, maxBytes = 1600000) =>
       });
     reader.onerror = () => reject(new Error("Photo read failed."));
     reader.readAsDataURL(file);
+  });
+
+const resizeImageAsDataUrl = (file, maxBytes = 1200000, maxSize = 900) =>
+  new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Only image files are allowed."));
+      return;
+    }
+
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * ratio));
+      canvas.height = Math.max(1, Math.round(image.height * ratio));
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      let quality = 0.86;
+      let dataUrl = canvas.toDataURL("image/jpeg", quality);
+      while (dataUrl.length > maxBytes && quality > 0.45) {
+        quality -= 0.08;
+        dataUrl = canvas.toDataURL("image/jpeg", quality);
+      }
+      if (dataUrl.length > maxBytes) {
+        reject(new Error("Photo is still too large. Please choose a smaller image."));
+        return;
+      }
+      resolve({ name: file.name, type: "image/jpeg", dataUrl });
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Photo read failed."));
+    };
+    image.src = objectUrl;
   });
 
 const introStorageKey = "rashtraSarvopariIntroSeenV6";
@@ -702,7 +799,7 @@ const renderStatusBoard = async (selectedArea = siteData.defaultArea.focus, sele
               ? `<img class="issue-proof" src="${issue.photo.dataUrl}" alt="Photo proof uploaded by ${escapeHtml(issue.username || "citizen")}" />`
               : ""
           }
-          <small>Reported by: <b>${escapeHtml(issue.username || issue.name || "Citizen")}</b></small>
+          <small>Reported by: <button class="profile-link" type="button" data-profile-username="${escapeHtml(issue.username || issue.name || "")}"><b>${escapeHtml(issue.username || issue.name || "Citizen")}</b></button></small>
         </article>
       `,
     )
@@ -725,7 +822,11 @@ const renderVotes = () => {
     }
     if (feedNode) {
       const visibleVoters = voters.slice(0, 4);
-      feedNode.innerHTML = visibleVoters.length
+      feedNode.innerHTML = !isAdminUser()
+        ? visibleVoters.length
+          ? "Citizen votes recorded."
+          : "No citizen votes yet."
+        : visibleVoters.length
         ? visibleVoters
             .map(
               (voter) => `
@@ -735,11 +836,19 @@ const renderVotes = () => {
                       ? `<img src="${voter.avatar}" alt="${escapeHtml(voter.username)} avatar" />`
                       : `<i>${escapeHtml(voter.username.slice(0, 1).toUpperCase())}</i>`
                   }
-                  Voted by: ${escapeHtml(voter.username)}
+                  <button class="profile-link" type="button" data-profile-username="${escapeHtml(voter.username)}"><b>Voted by: ${escapeHtml(voter.username)}</b></button>
+                  ${
+                    isAdminUser()
+                      ? `<button class="chip-remove" type="button" aria-label="Remove ${escapeHtml(voter.username)} vote" data-admin-remove-vote="${escapeHtml(issueKey)}" data-admin-remove-voter="${escapeHtml(voter.username)}">Remove</button>`
+                      : ""
+                  }
                 </span>
               `,
             )
-            .join("")
+            .join("") +
+          (isAdminUser()
+            ? `<button class="danger-action compact-danger" type="button" data-admin-clear-issue-votes="${escapeHtml(issueKey)}">Clear Votes</button>`
+            : "")
         : "No citizen votes yet.";
     }
   });
@@ -750,6 +859,66 @@ const openAccountModal = () => {
   accountModal.hidden = false;
   document.body.classList.add("no-scroll");
   accountModal.querySelector("input")?.focus();
+};
+
+const profileBadge = (user = {}) =>
+  user.verified || user.username === "krishnagopalsharma"
+    ? `<span class="verified-tick" title="Verified admin">✓</span><em class="admin-label">Admin</em>`
+    : `<em class="admin-label muted">Citizen</em>`;
+
+const profileAvatarMarkup = (user = {}) =>
+  user.avatar
+    ? `<img src="${user.avatar}" alt="${escapeHtml(user.username || "citizen")} avatar" style="${avatarStyle(user)}" />`
+    : `<span>${escapeHtml((user.username || "U").slice(0, 2).toUpperCase())}</span>`;
+
+const openPublicProfile = async (username, fallback = {}) => {
+  const cleanUsername = username?.toString().trim().toLowerCase();
+  if (!cleanUsername) return;
+  const existing = document.querySelector(".public-profile-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.className = "account-modal public-profile-modal";
+  overlay.innerHTML = `
+    <div class="account-modal-panel public-profile-card">
+      <button class="modal-close" type="button" aria-label="Close public profile">×</button>
+      <span class="section-kicker">Citizen profile</span>
+      <div class="profile-loading">Loading profile...</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.classList.add("no-scroll");
+
+  const close = () => {
+    overlay.remove();
+    document.body.classList.remove("no-scroll");
+  };
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay || event.target.closest(".modal-close")) close();
+  });
+
+  try {
+    const payload = await fetchPublicProfile(cleanUsername);
+    const user = payload.user || fallback;
+    overlay.querySelector(".public-profile-card").innerHTML = `
+      <button class="modal-close" type="button" aria-label="Close public profile">×</button>
+      <span class="section-kicker">Citizen profile</span>
+      <div class="public-profile-head">
+        <div class="profile-avatar public-avatar">${profileAvatarMarkup(user)}</div>
+        <div>
+          <h2>${escapeHtml(user.displayName || user.username)}</h2>
+          <p>@${escapeHtml(user.username)} ${profileBadge(user)}</p>
+        </div>
+      </div>
+      <div class="profile-stats">
+        <span><b>${Number(user.totalVotes || 0)}</b> votes cast</span>
+        <span><b>${Number(user.totalOpinions || 0)}</b> opinions posted</span>
+      </div>
+    `;
+  } catch (error) {
+    overlay.querySelector(".profile-loading").textContent = error.message || "Profile could not be loaded.";
+  }
 };
 
 const closeAccountModal = () => {
@@ -804,9 +973,9 @@ const openOpinionBox = (category, user) => {
       <span class="section-kicker">Citizen issue</span>
       <h3>Write your opinion/issue for ${escapeHtml(translateCategory(category))}</h3>
       <p>Posting as <b>${escapeHtml(user.username)}</b> | Area: ${escapeHtml(selectedIssueContext().area)}</p>
-      <textarea name="opinionText" rows="5" placeholder="Yahan apni asli shikayat ya raye likhein..." required></textarea>
+      <textarea name="opinionText" rows="5" placeholder="Write your real issue or opinion clearly..." required></textarea>
       <div class="opinion-actions">
-        <button type="submit" class="primary-action">Live Publish Karein</button>
+        <button type="submit" class="primary-action">Publish to Live Feed</button>
         <button type="button" class="ghost-action" data-cancel>Cancel</button>
       </div>
     </form>
@@ -838,8 +1007,8 @@ const openOpinionBox = (category, user) => {
       await publishCitizenIssue({ category, text });
     } catch (error) {
       submitButton.disabled = false;
-      submitButton.textContent = "Live Publish Karein";
-      window.alert(error.message || "Issue submit nahi ho paya.");
+      submitButton.textContent = "Publish to Live Feed";
+      window.alert(error.message || "Issue could not be submitted.");
       return;
     }
     close();
@@ -897,7 +1066,7 @@ const openCustomIssueBox = (user) => {
       (issue) => issue.key === key || issue.issueKey === key || issue.title?.toLowerCase() === title.toLowerCase(),
     );
     if (duplicate) {
-      window.alert("Ye issue category already listed hai bhai. Us par vote kar do.");
+      window.alert("This issue category is already listed. Please vote on that card.");
       return;
     }
     const submitButton = overlay.querySelector("button[type='submit']");
@@ -909,7 +1078,7 @@ const openCustomIssueBox = (user) => {
     } catch (error) {
       submitButton.disabled = false;
       submitButton.textContent = "Add Issue + Vote";
-      window.alert(error.message || "Custom issue add nahi ho paya.");
+      window.alert(error.message || "Custom issue could not be added.");
     }
   });
 };
@@ -1115,6 +1284,8 @@ adminRefresh?.addEventListener("click", () => renderAdminPanel());
 adminPanel?.addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-admin-delete-user]");
   const purgeButton = event.target.closest("[data-admin-purge-post]");
+  const clearIssueButton = event.target.closest("[data-admin-clear-issue-votes]");
+  const clearAllButton = event.target.closest("[data-admin-clear-all-votes]");
   try {
     if (deleteButton) {
       const username = deleteButton.dataset.adminDeleteUser;
@@ -1131,12 +1302,40 @@ adminPanel?.addEventListener("click", async (event) => {
       await purgePost(issueId);
       await renderStatusBoard(selectedIssueContext().area, selectedIssueContext().pin);
       await renderAdminPanel();
+      return;
+    }
+    if (clearIssueButton) {
+      const issueKey = clearIssueButton.dataset.adminClearIssueVotes;
+      if (!window.confirm("Clear all votes for this issue?")) return;
+      clearIssueButton.disabled = true;
+      const result = await clearIssueVotes(issueKey);
+      latestVoteData = result.votes || latestVoteData;
+      renderIssues();
+      await renderStatusBoard(selectedIssueContext().area, selectedIssueContext().pin);
+      await renderAdminPanel();
+      return;
+    }
+    if (clearAllButton) {
+      if (!window.confirm("Clear all vote records for this area?")) return;
+      clearAllButton.disabled = true;
+      const result = await clearAllVotes();
+      latestVoteData = result.votes || [];
+      renderIssues();
+      await renderStatusBoard(selectedIssueContext().area, selectedIssueContext().pin);
+      await renderAdminPanel();
     }
   } catch (error) {
     if (adminStatus) adminStatus.textContent = error.message || "Admin action failed.";
   }
 });
 document.addEventListener("click", (event) => {
+  const profileLink = event.target.closest("[data-profile-username]");
+  if (profileLink) {
+    event.preventDefault();
+    event.stopPropagation();
+    openPublicProfile(profileLink.dataset.profileUsername);
+    return;
+  }
   if (!profileMenu || profileMenu.hidden) return;
   if (accountShell?.contains(event.target)) return;
   profileMenu.hidden = true;
@@ -1152,7 +1351,7 @@ avatarInput?.addEventListener("change", async () => {
   const file = avatarInput.files?.[0];
   if (!file || !currentUser) return;
   try {
-    const photo = await readImageAsDataUrl(file, 600000);
+    const photo = await resizeImageAsDataUrl(file, 1200000, 900);
     const result = await updateAvatar(photo.dataUrl);
     persistSession({ token: authToken, user: result.user });
   } catch (error) {
@@ -1224,6 +1423,42 @@ quickAccountForm?.addEventListener("submit", async (event) => {
 });
 
 issueGrid.addEventListener("click", (event) => {
+  if (event.target.closest("[data-profile-username]")) return;
+  const clearIssueButton = event.target.closest("[data-admin-clear-issue-votes]");
+  const removeVoteButton = event.target.closest("[data-admin-remove-vote]");
+  if (clearIssueButton && isAdminUser()) {
+    clearIssueButton.disabled = true;
+    clearIssueVotes(clearIssueButton.dataset.adminClearIssueVotes)
+      .then(async (result) => {
+        latestVoteData = result.votes || latestVoteData;
+        renderIssues();
+        await renderStatusBoard(selectedIssueContext().area, selectedIssueContext().pin);
+        await renderAdminPanel();
+      })
+      .catch((error) => window.alert(error.message || "Votes could not be cleared."))
+      .finally(() => {
+        clearIssueButton.disabled = false;
+      });
+    return;
+  }
+  if (removeVoteButton && isAdminUser()) {
+    removeVoteButton.disabled = true;
+    removeVote({
+      issueKey: removeVoteButton.dataset.adminRemoveVote,
+      username: removeVoteButton.dataset.adminRemoveVoter,
+    })
+      .then(async (result) => {
+        latestVoteData = result.votes || latestVoteData;
+        renderIssues();
+        await renderStatusBoard(selectedIssueContext().area, selectedIssueContext().pin);
+        await renderAdminPanel();
+      })
+      .catch((error) => window.alert(error.message || "Vote could not be removed."))
+      .finally(() => {
+        removeVoteButton.disabled = false;
+      });
+    return;
+  }
   const customCard = event.target.closest("[data-custom-issue]");
   const voteButton = event.target.closest("[data-vote-key]");
   const user = loadCurrentUser();
@@ -1243,7 +1478,7 @@ issueGrid.addEventListener("click", (event) => {
       issueKey: voteButton.dataset.voteKey,
       title: voteButton.dataset.title,
     })
-      .catch((error) => window.alert(error.message || "Vote submit nahi ho paya."))
+      .catch((error) => window.alert(error.message || "Vote could not be submitted."))
       .finally(() => {
         voteButton.disabled = false;
         voteButton.textContent = "Vote for this Issue";
