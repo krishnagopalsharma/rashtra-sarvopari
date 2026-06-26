@@ -110,6 +110,12 @@ const avatarStyle = (user = {}) => {
   return `transform: scale(${Math.min(Math.max(zoom, 1), 1.8)});`;
 };
 
+const displayNameFromUsername = (username = "") =>
+  username
+    .replace(/[._]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .trim() || username;
+
 const apiRequest = async (path, options = {}) => {
   const headers = {
     "content-type": "application/json",
@@ -325,9 +331,12 @@ const renderProfileMenu = () => {
     profileMenu.hidden = true;
     return;
   }
-  const displayName = currentUser.displayName || currentUser.username;
+  const displayName = currentUser.displayName || displayNameFromUsername(currentUser.username);
   if (profileDisplayName) profileDisplayName.textContent = displayName;
-  profileUsername.innerHTML = `@${escapeHtml(currentUser.username)}${isAdminUser() ? ' <span class="verified-tick" title="Verified admin">✓</span> <em class="admin-label">Admin</em>' : ""}`;
+  profileUsername.innerHTML = `
+    <span>@${escapeHtml(currentUser.username)}${isAdminUser() ? ' <span class="verified-tick" title="Verified admin">✓</span>' : ""}</span>
+    ${isAdminUser() ? '<em class="admin-label">Admin</em>' : ""}
+  `;
   if (displayNameInput) displayNameInput.value = displayName;
   if (avatarZoomInput) avatarZoomInput.value = currentUser.avatarZoom || 1;
   profileVotes.textContent = currentUser.totalVotes || 0;
@@ -436,6 +445,158 @@ const resizeImageAsDataUrl = (file, maxBytes = 1200000, maxSize = 900) =>
         return;
       }
       resolve({ name: file.name, type: "image/jpeg", dataUrl });
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Photo read failed."));
+    };
+    image.src = objectUrl;
+  });
+
+const openAvatarCropper = (file) =>
+  new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("Only image files are allowed."));
+      return;
+    }
+
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    const state = { x: 0, y: 0, zoom: 1.08, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+    const viewportSize = 280;
+    const outputSize = 512;
+
+    const overlay = document.createElement("div");
+    overlay.className = "account-modal avatar-crop-modal";
+    overlay.innerHTML = `
+      <form class="account-modal-panel avatar-crop-panel">
+        <button class="modal-close" type="button" aria-label="Cancel avatar crop">×</button>
+        <span class="section-kicker">Profile photo</span>
+        <h2>Crop your profile picture</h2>
+        <p>Drag the photo and adjust zoom so your face or logo fits inside the circle.</p>
+        <div class="avatar-crop-stage">
+          <div class="avatar-crop-frame" aria-label="Circular avatar crop preview">
+            <img alt="Avatar crop preview" />
+          </div>
+        </div>
+        <label class="avatar-crop-slider">
+          <span>Zoom</span>
+          <input type="range" min="1" max="2.4" value="${state.zoom}" step="0.01" />
+        </label>
+        <div class="opinion-actions">
+          <button type="submit" class="primary-action">Use this photo</button>
+          <button type="button" class="ghost-action" data-cancel>Cancel</button>
+        </div>
+      </form>
+    `;
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      overlay.remove();
+      document.body.classList.remove("no-scroll");
+    };
+
+    const closeWithCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const preview = overlay.querySelector(".avatar-crop-frame img");
+    const slider = overlay.querySelector(".avatar-crop-slider input");
+    const frame = overlay.querySelector(".avatar-crop-frame");
+
+    const updatePreview = () => {
+      const baseScale = Math.max(viewportSize / image.naturalWidth, viewportSize / image.naturalHeight);
+      const displayWidth = image.naturalWidth * baseScale * state.zoom;
+      const displayHeight = image.naturalHeight * baseScale * state.zoom;
+      preview.style.width = `${displayWidth}px`;
+      preview.style.height = `${displayHeight}px`;
+      preview.style.transform = `translate(calc(-50% + ${state.x}px), calc(-50% + ${state.y}px))`;
+    };
+
+    const pointerPosition = (event) => ({
+      x: event.clientX ?? event.touches?.[0]?.clientX ?? 0,
+      y: event.clientY ?? event.touches?.[0]?.clientY ?? 0,
+    });
+
+    frame.addEventListener("pointerdown", (event) => {
+      state.dragging = true;
+      const point = pointerPosition(event);
+      state.startX = point.x;
+      state.startY = point.y;
+      state.originX = state.x;
+      state.originY = state.y;
+      frame.setPointerCapture?.(event.pointerId);
+    });
+
+    frame.addEventListener("pointermove", (event) => {
+      if (!state.dragging) return;
+      const point = pointerPosition(event);
+      state.x = state.originX + point.x - state.startX;
+      state.y = state.originY + point.y - state.startY;
+      updatePreview();
+    });
+
+    const stopDrag = () => {
+      state.dragging = false;
+    };
+    frame.addEventListener("pointerup", stopDrag);
+    frame.addEventListener("pointercancel", stopDrag);
+    frame.addEventListener("pointerleave", stopDrag);
+
+    slider.addEventListener("input", () => {
+      state.zoom = Number(slider.value);
+      updatePreview();
+    });
+
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay || event.target.closest(".modal-close") || event.target.closest("[data-cancel]")) {
+        closeWithCancel();
+      }
+    });
+
+    overlay.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const canvas = document.createElement("canvas");
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#07111f";
+      context.fillRect(0, 0, outputSize, outputSize);
+
+      const baseScale = Math.max(viewportSize / image.naturalWidth, viewportSize / image.naturalHeight);
+      const scale = baseScale * state.zoom * (outputSize / viewportSize);
+      const drawWidth = image.naturalWidth * scale;
+      const drawHeight = image.naturalHeight * scale;
+      const offsetScale = outputSize / viewportSize;
+      context.drawImage(
+        image,
+        outputSize / 2 - drawWidth / 2 + state.x * offsetScale,
+        outputSize / 2 - drawHeight / 2 + state.y * offsetScale,
+        drawWidth,
+        drawHeight,
+      );
+
+      let quality = 0.9;
+      let dataUrl = canvas.toDataURL("image/jpeg", quality);
+      while (dataUrl.length > 1200000 && quality > 0.48) {
+        quality -= 0.08;
+        dataUrl = canvas.toDataURL("image/jpeg", quality);
+      }
+      cleanup();
+      resolve({ name: file.name, type: "image/jpeg", dataUrl });
+    });
+
+    image.onload = () => {
+      document.body.appendChild(overlay);
+      document.body.classList.add("no-scroll");
+      preview.src = objectUrl;
+      updatePreview();
+      slider.focus();
     };
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
@@ -1351,7 +1512,8 @@ avatarInput?.addEventListener("change", async () => {
   const file = avatarInput.files?.[0];
   if (!file || !currentUser) return;
   try {
-    const photo = await resizeImageAsDataUrl(file, 1200000, 900);
+    const photo = await openAvatarCropper(file);
+    if (!photo?.dataUrl) return;
     const result = await updateAvatar(photo.dataUrl);
     persistSession({ token: authToken, user: result.user });
   } catch (error) {
@@ -1376,7 +1538,7 @@ profileSave?.addEventListener("click", async () => {
   try {
     const result = await updateProfile({
       displayName: displayNameInput?.value || currentUser.username,
-      avatarZoom: Number(avatarZoomInput?.value || currentUser.avatarZoom || 1),
+      avatarZoom: 1,
     });
     persistSession({ token: authToken, user: result.user });
     profileSave.textContent = "Saved";
