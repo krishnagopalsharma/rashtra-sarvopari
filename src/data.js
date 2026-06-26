@@ -200,8 +200,8 @@ export const siteData = {
     voterNotes: "Jat, Brahmin, and Dalit voters have a strong local impact.",
     result2024: [
       { position: "Winner", name: "Hema Malini", party: "BJP" },
-      { position: "Runner-up", name: "Suresh Singh", party: "BSP" },
-      { position: "Third", name: "Mukesh Dhangar", party: "INC" },
+      { position: "Runner-up", name: "Mukesh Dhangar", party: "INC" },
+      { position: "Third", name: "Suresh Singh", party: "BSP" },
     ],
     winners: [
       { year: "2024", winner: "Hema Malini", party: "BJP", note: "Current MP." },
@@ -422,7 +422,7 @@ export const siteData = {
       memberOfParliament: "Member of Parliament",
       mpPointOne: "Third consecutive term.",
       mpPointTwo: "Won in 2014, 2019, and 2024.",
-      mpPointThree: "2024 runner-up: Suresh Singh (BSP).",
+      mpPointThree: "2024 runner-up: Mukesh Dhangar (Congress).",
       constitution: "Constitution",
       ambedkarText: "Key architect of the Constitution of India.",
       science: "Science",
